@@ -70,7 +70,7 @@ class Workflow(object):
         if not self.wf.get('action', None):
             pu.fail('Atleast one action block must be present\n')
         else:
-            for _, a_block in dict(self.wf['action']).items():
+            for _, a_block in self.wf['action'].items():
                 if a_block.get('uses', None):
                     return
             pu.fail('[uses] attribute must be present\n')
