@@ -651,6 +651,60 @@ class SingularityRunner(ActionRunner):
         return ecode
 
 
+class VagrantRunner(ActionRunner):
+    """A Vagrant Action Runner.
+    """
+    def __init__(self, action, workspace, env, dry):
+        super(VagrantRunner, self).__init__(action, workspace, env, dry)
+        
+    def run():
+        """Run a Vagrant action.
+        """
+        raise NotImplementedError("Coming soon !")
+     
+    ## Vagrant commands specific to a VM
+    def vagrant_halt(self, mid):
+        """Shut down the running machine that Vagrant is managing.
+        """
+        pu.exec_cmd('vagrant halt {}'.format(mid))
+    
+    def vagrant_destroy(self, mid):
+        """Stops the machine and destroys all resources related with it.
+        """
+        pu.exec_cmd('vagrant destroy {}'.format(mid))
+
+    def vagrant_validate(self):
+        """Validate the `Vagrantfile`.
+        """
+        pu.exec_cmd('vagrant validate')
+
+    ## Vagrant commands specific to a Vagrant box
+    def vagrant_add(self, box):
+        """Pull a Vagrant box from registry and use it.
+        
+        Note:
+            If `--clean` is given, Vagrant will remove any old  
+            temporary files from prior downloads of the same URL. 
+            This is useful if you do not want Vagrant to resume a
+            download from a previous point, perhaps because the
+            contents changed.
+         
+        Args:
+            box (str): The name of the box.
+        """
+        pu.exec_cmd('vagrant box add --clean {}'.format(box))
+
+    def vagrant_list(self):
+        """List all the Vagrant box.
+        """
+        pu.exec_cmd('vagrant list')
+
+    def vagrant_remove(self, name):
+        """Remove a Vagrant box.
+        """
+        pu.exec_cmd('vagrant box remove {}'.format(name))
+
+    
 class HostRunner(ActionRunner):
     def __init__(self, action, workspace, env, dry):
         super(HostRunner, self).__init__(action, workspace, env, dry)
