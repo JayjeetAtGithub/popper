@@ -33,6 +33,8 @@ def cli(ctx, wfile, recursive):
         _parent = parent.replace(' ', '_').replace('-', '_')
         for n in children:
             _n = n.replace(' ', '_').replace('-', '_')
+            if _parent == wf.name.replace(' ', '_').replace('-', '_'):
+                graph_str += "  {} [shape=box]\n".format(_parent)
             graph_str += "  {} -> {};\n".format(_parent, _n)
             for M in wf.get_action(n).get('next', []):
                 graph_str = add_to_graph(graph_str, wf, n, [M])
