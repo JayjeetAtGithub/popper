@@ -156,7 +156,8 @@ class Workflow(object):
             for key in wf_block.keys():
                 if key not in VALID_WORKFLOW_ATTRS:
                     log.fail(
-                        'Invalid workflow attribute \'{}\' was found.'.format(key))
+                        'Invalid workflow attribute \'{}\' was '
+                        'found.'.format(key))
             if not wf_block.get('resolves', None):
                 log.fail('[resolves] attribute must be present.')
 
