@@ -13,7 +13,7 @@ from popper.cli import log, pass_context
 )
 @click.option(
     '--update-cache',
-    help=('Skip updating the metadata and search on the local cache.'),
+    help=('Update the action metadata cache before searching.'),
     is_flag=True
 )
 @click.option(
@@ -27,9 +27,12 @@ def cli(ctx, keywords, update_cache, include_readme):
     metadata = pu.fetch_metadata(update_cache)
     result = search(metadata, keywords, include_readme)
     result = list(map(lambda x: x[0] + '/' + x[1], result))
-    log.info('Matched actions : \n')
-    for action in result:
-        log.info('> {}\n'.format(action))
+    log.info('Search Results : \n')
+    if result:
+        for action in result:
+            log.info('> {}\n'.format(action))
+    else:
+        log.info('No matching actions found.\n')
 
 
 def search(metadata, keyword, include_readme):
@@ -50,7 +53,7 @@ def search(metadata, keyword, include_readme):
         for repo, repo_metadata in repos_in_org.items():
             if keyword in repo:
                 result.append((org, repo))
-            elif include_readme and repo_metadata.get('repo_readme', None):
+            elif include_readme and repo_metadata['repo_readme']:
                 if keyword in repo_metadata['repo_readme']:
                     result.append((org, repo))
     return result

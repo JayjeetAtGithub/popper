@@ -123,11 +123,9 @@ Once `popper search` runs, it caches all the metadata related to the search.
 So, to get the latest releases of the actions, you might want to update the
 cache using the `--update-cache` flag.
 
-By default, popper searches for actions from [popperized](https://github.com/popperized)
-and [actions](https://github.com/actions) Github Organizations. To help keep the search
-repositories list keep growing, you can add the Github organization name or the repository
-name(org/repo) in the `.search_sources.yml` file in `cli/popper/resources` and send a pull request
-to the upstream repository.
+By default, popper searches for actions from a list present [here](../../cli/popper/resources/.search_sources.yml).
+To help the list keep growing, you can add Github organization names or repository
+names(org/repo) and send a pull request to the upstream repository.
 
 
 To get the details of a searched action, use the `popper info` command. For example,
