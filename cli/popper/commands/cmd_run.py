@@ -15,7 +15,7 @@ from popper import log as logging
 @click.command(
     'run', short_help='Run a workflow or action.')
 @click.argument(
-    'action', required=False)
+    'action_wfile', required=False)
 @click.option(
     '--on-failure',
     help='The action to run if there is a failure.',
@@ -42,17 +42,8 @@ from popper import log as logging
     is_flag=True,
 )
 @click.option(
-    '--wfile',
-    help=(
-        'File containing the definition of the workflow. '
-        '[default: ./github/main.workflow OR ./main.workflow]'
-    ),
-    required=False,
-    default=None
-)
-@click.option(
     '--skip',
-    help=('Skip the list of actions specified.'),
+    help=('Skip the list of actions/workflow specified.'),
     required=False,
     default=list(),
     multiple=True
@@ -113,47 +104,43 @@ from popper import log as logging
     default='docker'
 )
 @pass_context
-def cli(ctx, action, wfile, skip_clone, skip_pull, skip, workspace, reuse,
-        recursive, quiet, debug, dry_run, parallel, log_file,
-        with_dependencies, on_failure, runtime):
+def cli(ctx, **kwargs):
     """Executes one or more pipelines and reports on their status.
     """
-    popper.scm.get_git_root_folder()
-    level = 'ACTION_INFO'
-    if quiet:
-        level = 'INFO'
-    if debug:
-        level = 'DEBUG'
-    log.setLevel(level)
-    if log_file:
-        logging.add_log(log, log_file)
-
     if os.environ.get('CI') == 'true':
-        log.info("Running in CI environment.")
-        if recursive:
-            log.warning('When CI variable is set, --recursive is ignored.')
-        wfile_list = pu.find_recursive_wfile()
-        wfile_list = workflows_from_commit_message(wfile_list)
-    else:
-        if recursive:
-            if action:
-                log.fail(
-                    "An 'action' argument and the --recursive flag cannot be "
-                    "both given.")
-            wfile_list = pu.find_recursive_wfile()
-        else:
-            wfile_list = [wfile]
+        log.info('Running in CI environment...')
+        kwargs.update(parse_commit_message())
+     
+    # validate the options and return the workflows and actions to execute.
+    wfile_list, action = validate_options(kwargs)
+    kwargs.pop('recursive')
+    kwargs.pop('action_wfile')
+    print(wfile_list)
+    # set the logging level.
+    level = 'ACTION_INFO'
+    
+    if kwargs['quiet']:
+        level = 'INFO'
+
+    if kwargs['debug']:
+        level = 'DEBUG'
+    
+    log.setLevel(level)
+    
+    if kwargs['log_file']:
+        logging.add_log(log, kwargs['log_file'])
 
     if not wfile_list:
-        log.fail("No workflow to execute.")
+        log.fail('No workflows to execute.')
 
+    kwargs.pop('debug')
+    kwargs.pop('quiet')
+    kwargs.pop('log_file')
+
+    # Run all the workflows in the list.
     for wfile in wfile_list:
-        wfile = pu.find_default_wfile(wfile)
         log.info("Found and running workflow at " + wfile)
-        run_pipeline(action, wfile, skip_clone, skip_pull, skip, workspace,
-                     reuse, dry_run, parallel, with_dependencies, on_failure,
-                     runtime)
-
+        run_pipeline(action, wfile, **kwargs)
 
 def run_pipeline(action, wfile, skip_clone, skip_pull, skip, workspace, reuse,
                  dry_run, parallel, with_dependencies, on_failure, runtime):
@@ -172,14 +159,6 @@ def run_pipeline(action, wfile, skip_clone, skip_pull, skip, workspace, reuse,
         log.warn("Using --parallel may result in interleaved output. "
                  "You may use --quiet flag to avoid confusion.")
 
-    if with_dependencies and (not action):
-        log.fail('`--with-dependencies` can be used only with '
-                 'action argument.')
-
-    if skip and action:
-        log.fail('`--skip` can\'t be used when action argument '
-                 'is passed.')
-
     try:
         pipeline.run(action, skip_clone, skip_pull, skip, workspace, reuse,
                      dry_run, parallel, with_dependencies, runtime)
@@ -196,11 +175,11 @@ def run_pipeline(action, wfile, skip_clone, skip_pull, skip, workspace, reuse,
         log.info('Workflow finished successfully.')
 
 
-def workflows_from_commit_message(workflows):
+def parse_commit_message():
     head_commit = scm.get_head_commit()
 
     if not head_commit:
-        return workflows
+        return {}
 
     msg = head_commit.message
 
@@ -208,29 +187,94 @@ def workflows_from_commit_message(workflows):
         log.info("Merge detected. Reading message from merged commit.")
         if len(head_commit.parents) == 2:
             msg = head_commit.parents[1].message
+    
+    if not 'popper:[' in msg:
+        return {}
 
-    if 'popper:skip[' in msg:
-        log.info("Found 'popper:skip' keyword.")
-        re_expr = r'popper:skip\[(.+?)\]'
-    elif 'popper:whitelist[' in msg:
-        log.info("Found 'popper:whitelist' keyword.")
-        re_expr = r'popper:whitelist\[(.+?)\]'
-    else:
-        return workflows
-
+    pattern = r'popper:\[(.+?)\]'
     try:
-        workflow_list = re.search(re_expr, msg).group(1).split(',')
+        args = re.search(pattern, msg).group(1).split(' ')
     except AttributeError:
-        log.fail("Error parsing commit message keyword.")
+        log.fail("The head commit message should contain a keyword "
+                 "of the form 'popper:[...]'")
+    
+    ci_context = popper.commands.cmd_run.cli.make_context('popper run', args)
+    return ci_context.params
 
-    if 'skip' in re_expr:
-        for wf in workflow_list:
-            if wf in workflows:
-                workflows.remove(wf)
+
+def validate_options(kwargs):
+    """Validate the options passed to run command.
+    """
+    def is_workflow(ref):
+        """Check whether a given ref is a workflow.
+        """
+        if isinstance(ref, str):
+            return ref.endswith('.workflow')
+        elif isinstance(ref, list):
+            for r in ref:
+                if not r.endswith('.workflow'):
+                    return False
+        return True
+
+    def is_action(ref):
+        """Check whether a given ref is an action.
+        """
+        return not is_workflow(ref)
+
+    action_wfile = kwargs.get('action_wfile')
+    skip = kwargs.get('skip')
+    with_dependencies = kwargs.get('with_dependencies')
+    recursive = kwargs.get('recursive')
+
+    wfile_list, action = list(), None
+
+    if action_wfile and skip:
+        # when both action_wfile and skip is given,
+        # it is valid only when action_wfile is a workflow,
+        # and skip consists of actions.
+        if not(is_workflow(action_wfile) and is_action(skip)):
+            log.fail('This arrangement does not make any sense.')
+
+        if with_dependencies:
+            log.fail('Cannot use --with-dependencies when action argument is not passed.')
+
+        wfile_list = [action_wfile]
+
+    elif action_wfile and not skip:
+        # when action_wfile in given but not skip.
+        if is_workflow(action_wfile):
+            if with_dependencies:
+                log.fail('Cannot use --with-dependencies when action argument is not passed.')
+            if recursive:
+                log.fail('Cannot run in recursive mode when workflow argument is passed.')
+            wfile_list = [action_wfile]
+
+        elif is_action(action_wfile):
+            if recursive:
+                log.fail('Cannot specify action to run in recursive mode.')
+            wfile_list = pu.find_default_wfile()
+            action = action_wfile
+
+    elif not action_wfile and skip:
+        # when action_wfile is not passed but skip is passed.
+        if is_workflow(skip):
+            if not recursive:
+                log.fail('Cannot skip workflows in non-recursive mode.')
+            wfile_list = set(pu.find_recursive_wfile()) - set(skip)
+            wfile_list = list(wfile_list)
+
+        elif is_action(skip):
+            if recursive:
+                wfile_list = pu.find_recursive_wfile()
             else:
-                log.warn('Workflow {} was not found.'.format(wf))
+                wfile_list = pu.find_default_wfile()
     else:
-        workflows = workflow_list
+        # when action_wfile and skip, nothing is not passed.
+        if with_dependencies:
+            log.fail('Cannot use --with-dependencies when action argument is not passed.')
+        if recursive:
+            wfile_list = pu.find_recursive_wfile()
+        else:
+            wfile_list = pu.find_default_wfile()
 
-    log.info('Only running workflows: {}'.format(', '.join(workflows)))
-    return workflows
+    return wfile_list, action
