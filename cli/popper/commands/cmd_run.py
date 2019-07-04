@@ -226,7 +226,7 @@ def validate_options(kwargs):
         return not is_workflow(ref)
 
     action_wfile = kwargs.get('action_wfile')
-    skip = kwargs.get('skip')
+    skip = list(kwargs.get('skip'))
     with_dependencies = kwargs.get('with_dependencies')
     recursive = kwargs.get('recursive')
 
@@ -237,10 +237,8 @@ def validate_options(kwargs):
         # it is valid only when action_wfile is a workflow,
         # and skip consists of actions.
         if not(is_workflow(action_wfile) and is_action(skip)):
-            log.fail('This arrangement does not make any sense.')
-
-        if with_dependencies:
-            log.fail('Cannot use --with-dependencies when action argument is not passed.')
+            log.fail('Only a workflow argument and action skip options '
+                     'can be passed together.')
 
         wfile_list = [action_wfile]
 
