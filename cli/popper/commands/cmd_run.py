@@ -258,21 +258,21 @@ def validate_options(kwargs, ci):
 
         elif is_action(action_wfile):
             if recursive:
-                log.fail('Cannot specify action to run in recursive mode.')
+                log.fail('Cannot specify action to run in recursive/CI mode.')
             action = action_wfile
 
     elif not action_wfile and skip:
         # when action_wfile is not passed but skip is passed.
         if is_workflow(skip):
             if not recursive:
-                log.fail('Cannot skip workflows in non-recursive mode.')
+                log.fail('Cannot skip workflows in non-recursive/non-CI mode.')
             wfile_list = set(pu.find_recursive_wfile()) - set(skip)
             wfile_list = list(wfile_list)
             kwargs['skip'] = list()
 
         elif is_action(skip):
             if recursive:
-                wfile_list = pu.find_recursive_wfile()
+                log.fail('Cannot skip actions in recursive/CI mode.')
     else:
         # when action_wfile and skip, nothing is not passed.
         if with_dependencies:
