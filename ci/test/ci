@@ -87,8 +87,10 @@ EOF
 
 git init
 git add .
-git commit -m "popper:whitelist[/tmp/mypaper/myaction/a.workflow,/tmp/mypaper/myaction/b.workflow]"
-popper run --dry-run --runtime "$RUNTIME" | grep "Only running workflows: /tmp/mypaper/myaction/a.workflow, /tmp/mypaper/myaction/b.workflow"
+git commit -m "popper:[--skip /tmp/mypaper/myaction/c.workflow]"
+popper run --dry-run --runtime "$RUNTIME" > output
+grep -q "Found and running workflow at /tmp/mypaper/myaction/a.workflow" output
+grep -q "Found and running workflow at /tmp/mypaper/myaction/b.workflow" output
 
 
 cd $test_repo_path
@@ -106,13 +108,13 @@ action "a" {
 EOF
 
 git add .
-git commit -m "popper:skip[/tmp/mypaper/myaction/a.workflow,/tmp/mypaper/myaction/c.workflow"]
-popper run --dry-run --runtime "$RUNTIME" | grep "Only running workflows: /tmp/mypaper/myaction/b.workflow, /tmp/mypaper/myaction/d.workflow"
-
+git commit -m "popper:[/tmp/mypaper/myaction/a.workflow]"
+popper run --dry-run --runtime "$RUNTIME" > output
+grep -q "Found and running workflow at /tmp/mypaper/myaction/a.workflow" output
 
 git clone https://github.com/JayjeetAtGithub/test-merge-commits
 cd test-merge-commits
 popper run --dry-run --runtime "$RUNTIME" > output
-grep -q "Only running workflows: b.workflow" output
+grep -q "Found and running workflow at b.workflow" output
 
 echo "Test CI passed."

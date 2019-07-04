@@ -108,12 +108,18 @@ from popper import log as logging
 def cli(ctx, **kwargs):
     """Executes one or more pipelines and reports on their status.
     """
+    ci = False
     if os.environ.get('CI') == 'true':
+        ci = True
         log.info('Running in CI environment...')
         kwargs.update(parse_commit_message())
-     
+        if kwargs['recursive']:
+            log.warn('When CI is set, --recursive is ignored.')
+        else:
+            kwargs['recursive'] = True
+
     # validate the options and return the workflows and actions to execute.
-    wfile_list, action = validate_options(kwargs)
+    wfile_list, action = validate_options(kwargs, ci)
     kwargs.pop('recursive')
     kwargs.pop('action_wfile')
 
@@ -204,7 +210,7 @@ def parse_commit_message():
     return ci_context.params
 
 
-def validate_options(kwargs):
+def validate_options(kwargs, ci):
     """Validate the options passed to run command.
     """
     def is_workflow(ref):
@@ -233,9 +239,7 @@ def validate_options(kwargs):
     wfile_list, action = [None], None
 
     if action_wfile and skip:
-        # when both action_wfile and skip is given,
-        # it is valid only when action_wfile is a workflow,
-        # and skip consists of actions.
+        # when both action_wfile and skip is given.
         if not(is_workflow(action_wfile) and is_action(skip)):
             log.fail('Only a workflow argument and action skip options '
                      'can be passed together.')
@@ -248,7 +252,8 @@ def validate_options(kwargs):
             if with_dependencies:
                 log.fail('Cannot use --with-dependencies when action argument is not passed.')
             if recursive:
-                log.fail('Cannot run in recursive mode when workflow argument is passed.')
+                if not ci:
+                    log.fail('Cannot run in recursive mode when workflow argument is passed.')
             wfile_list = [action_wfile]
 
         elif is_action(action_wfile):
@@ -263,6 +268,7 @@ def validate_options(kwargs):
                 log.fail('Cannot skip workflows in non-recursive mode.')
             wfile_list = set(pu.find_recursive_wfile()) - set(skip)
             wfile_list = list(wfile_list)
+            kwargs['skip'] = list()
 
         elif is_action(skip):
             if recursive:
