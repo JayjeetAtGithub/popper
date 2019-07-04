@@ -139,6 +139,7 @@ def cli(ctx, **kwargs):
 
     # Run all the workflows in the list.
     for wfile in wfile_list:
+        wfile = pu.find_default_wfile(wfile)
         log.info("Found and running workflow at " + wfile)
         run_pipeline(action, wfile, **kwargs)
 
@@ -226,7 +227,7 @@ def validate_options(kwargs):
     with_dependencies = kwargs.get('with_dependencies')
     recursive = kwargs.get('recursive')
 
-    wfile_list, action = list(), None
+    wfile_list, action = [None], None
 
     if action_wfile and skip:
         # when both action_wfile and skip is given,
@@ -252,7 +253,6 @@ def validate_options(kwargs):
         elif is_action(action_wfile):
             if recursive:
                 log.fail('Cannot specify action to run in recursive mode.')
-            wfile_list = pu.find_default_wfile()
             action = action_wfile
 
     elif not action_wfile and skip:
@@ -266,15 +266,11 @@ def validate_options(kwargs):
         elif is_action(skip):
             if recursive:
                 wfile_list = pu.find_recursive_wfile()
-            else:
-                wfile_list = pu.find_default_wfile()
     else:
         # when action_wfile and skip, nothing is not passed.
         if with_dependencies:
             log.fail('Cannot use --with-dependencies when action argument is not passed.')
         if recursive:
             wfile_list = pu.find_recursive_wfile()
-        else:
-            wfile_list = pu.find_default_wfile()
 
     return wfile_list, action
