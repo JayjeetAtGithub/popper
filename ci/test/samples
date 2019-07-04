@@ -30,7 +30,7 @@ action "run lulesh" {
 }
 EOF
 
-popper run --wfile spack-workflow/main.workflow --runtime "$RUNTIME"
+popper run --runtime "$RUNTIME" spack-workflow/main.workflow
 delete_dir spack-workflow
 
 echo "Test SAMPLES passed."
