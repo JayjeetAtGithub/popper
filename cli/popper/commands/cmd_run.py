@@ -115,7 +115,7 @@ def cli(ctx, **kwargs):
     wfile_list, action = validate_options(kwargs)
     kwargs.pop('recursive')
     kwargs.pop('action_wfile')
-    print(wfile_list)
+
     # set the logging level.
     level = 'ACTION_INFO'
     
