@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+from builtins import str
 
 import click
 
