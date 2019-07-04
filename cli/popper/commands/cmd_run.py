@@ -215,7 +215,9 @@ def validate_options(kwargs):
             for r in ref:
                 if not r.endswith('.workflow'):
                     return False
-        return True
+            return True
+        else:
+            return False
 
     def is_action(ref):
         """Check whether a given ref is an action.
