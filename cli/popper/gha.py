@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 import os
 import getpass
+import shutil
 import subprocess
 import multiprocessing as mp
 from copy import deepcopy
@@ -466,7 +467,7 @@ class SingularityRunner(ActionRunner):
             build_path = os.path.join(
                 self.action['repo_dir'], self.action['action_dir'])
 
-        container = self.cid + '.sif'
+        container = self.cid
 
         if (not reuse) and (not self.skip_pull):
             if self.singularity_exists(container):
@@ -507,7 +508,7 @@ class SingularityRunner(ActionRunner):
     def get_reciple_file(build_path, container):
         dockerfile = os.path.join(build_path, 'Dockerfile')
         singularityfile = os.path.join(
-            build_path, 'Singularity.{}'.format(container[:-4]))
+            build_path, 'Singularity.{}'.format(container))
 
         if os.path.isfile(dockerfile):
             return SingularityRunner.convert(dockerfile, singularityfile)
@@ -519,7 +520,7 @@ class SingularityRunner(ActionRunner):
         pwd = os.getcwd()
         os.chdir(build_path)
         recipefile = SingularityRunner.get_reciple_file(build_path, container)
-        s_client.build(recipe=recipefile, image=container, build_folder=pwd)
+        s_client.build(recipe=recipefile, image=container + '.sif', build_folder=pwd)
         os.chdir(pwd)
 
     def singularity_exists(self, container):
@@ -534,7 +535,7 @@ class SingularityRunner(ActionRunner):
         """
         if self.dry_run:
             return
-        os.remove(container)
+        shutil.rmtree(container)
 
     def singularity_build_from_image(self, image, container):
         """Build container from Docker image.
@@ -544,7 +545,7 @@ class SingularityRunner(ActionRunner):
                 self.msg_prefix, self.action['name'], container, image)
             )
             if not self.dry_run:
-                s_client.pull(image=image, name=container)
+                self.singularity_build_sandbox(image, container)
         else:
             if not self.singularity_exists(container):
                 log.fail(
@@ -554,13 +555,20 @@ class SingularityRunner(ActionRunner):
     def singularity_build_from_recipe(self, build_path, container):
         """Build container from recipefile.
         """
-        filename = 'Singularity.{}'.format(container[:-4])
+        filename = 'Singularity.{}'.format(container)
         log.info('{}[{}] singularity build {} {}'.format(
             self.msg_prefix, self.action['name'],
             container, os.path.join(build_path, filename))
         )
         if not self.dry_run:
             SingularityRunner.build_from_recipe(build_path, container)
+            self.singularity_build_sandbox(container + '.sif', container)
+
+    def singularity_build_sandbox(self, image, container):
+        s_client.build(recipe=image, image=container, sandbox=True,
+                       sudo=False, options=['--fakeroot'])
+        if image.endswith('.sif'):
+            os.remove(image)
 
     def singularity_start(self, container):
         """Starts the container to execute commands or run the runscript
@@ -610,7 +618,7 @@ class SingularityRunner(ActionRunner):
         log.info(info)
         if not self.dry_run:
             output = start(container, commands, bind=volumes,
-                           stream=True, options=['--userns'])
+                           stream=True, options=['--userns', '--writable'])
             try:
                 for line in output:
                     log.action_info(line)

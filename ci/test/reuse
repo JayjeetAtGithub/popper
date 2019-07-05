@@ -36,6 +36,35 @@ popper run
 # lastly, test reuse for a single action
 popper run --reuse 'show env'
 
+
+# check for persistence of files written during runtime
+cat <<EOF > main.workflow
+workflow "test" {
+  resolves = "show env"
+}
+
+action "show env" {
+  uses = "actions/bin/sh@master"
+  args = ["echo 'Its Working..' > /test.file"]
+}
+EOF
+
+popper run --runtime "$RUNTIME"
+
+cat <<EOF > main.workflow
+workflow "test" {
+  resolves = "show env"
+}
+
+action "show env" {
+  uses = "actions/bin/sh@master"
+  args = ["cat /test.file"]
+}
+EOF
+
+popper run --reuse --runtime "$RUNTIME" > output
+grep -q "Its Working.." output
+
 # test while reusing the container uses the updated args.
 cat <<EOF > main.workflow
 workflow "test" {
