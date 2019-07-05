@@ -45,7 +45,7 @@ workflow "test" {
 
 action "show env" {
   uses = "actions/bin/sh@master"
-  args = ["echo 'Its Working..' > /test.file"]
+  args = ["echo 'Its Working..' > /tmp/mypaper/test.file"]
 }
 EOF
 
@@ -58,7 +58,7 @@ workflow "test" {
 
 action "show env" {
   uses = "actions/bin/sh@master"
-  args = ["cat /test.file"]
+  args = ["cat /tmp/mypaper/test.file"]
 }
 EOF
 

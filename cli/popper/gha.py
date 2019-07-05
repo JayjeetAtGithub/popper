@@ -16,6 +16,7 @@ import docker
 import spython
 from spython.main.parse.parsers import DockerParser, SingularityParser
 from spython.main.parse.writers import SingularityWriter
+from spython.utils.terminal import run_command
 
 import popper.cli
 from popper.cli import log
@@ -535,7 +536,7 @@ class SingularityRunner(ActionRunner):
         """
         if self.dry_run:
             return
-        shutil.rmtree(container)
+        run_command(['rm -rf {}'.format(container)], sudo=True)
 
     def singularity_build_from_image(self, image, container):
         """Build container from Docker image.
@@ -565,8 +566,7 @@ class SingularityRunner(ActionRunner):
             self.singularity_build_sandbox(container + '.sif', container)
 
     def singularity_build_sandbox(self, image, container):
-        s_client.build(recipe=image, image=container, sandbox=True,
-                       sudo=False, options=['--fakeroot'])
+        s_client.build(recipe=image, image=container, sandbox=True, force=True)
         if image.endswith('.sif'):
             os.remove(image)
 
@@ -618,7 +618,7 @@ class SingularityRunner(ActionRunner):
         log.info(info)
         if not self.dry_run:
             output = start(container, commands, bind=volumes,
-                           stream=True, options=['--userns', '--writable'])
+                           stream=True)
             try:
                 for line in output:
                     log.action_info(line)
