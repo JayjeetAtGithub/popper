@@ -115,7 +115,7 @@ action "end" {
   needs = [
     "test actions-demo",
     "test add",
-    "test ci",
+    // "test ci",
     "test dot",
     "test dry-run",
     // "test interrupt",
