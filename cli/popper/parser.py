@@ -174,23 +174,15 @@ class Workflow(object):
                 if not a_block.get('uses', None):
                     log.fail('[uses] attribute must be present.')
 
+    def _normalize_params(self, params):
+        if isinstance(params, str):
+            return params.split(" ")
+        elif isinstance(params, list):
+            return " ".join(params).split(" ")
+
     def _normalize(self):
         """Normalize the dictionary representation of the workflow by creating
         lists for all attributes that can be either a string or a list."""
-        # move from this:
-        #
-        #  "workflow": {
-        #    "test-and-deploy": {
-        #      "resolves": "deploy"
-        #    }
-        #  }
-        #
-        # to this (top-level items in workflow dictionary):
-        #
-        #  "name": "test-and-deploy",
-        #  "on": "push",
-        #  "resolves": "deploy"
-        #
 
         for wf_name, wf_block in dict(self._workflow['workflow']).items():
             self._workflow['name'] = wf_name
@@ -211,6 +203,7 @@ class Workflow(object):
             self._workflow['resolves'] = [self._workflow['resolves']]
         elif not self._is_list_of_strings(self._workflow['resolves']):
             log.fail('[resolves] must be a list of strings or a string')
+
         if not isinstance(self._workflow['on'], basestring):
             log.fail('[on] attribute must be a string')
         for a_name, a_block in self._workflow['action'].items():
@@ -219,6 +212,7 @@ class Workflow(object):
 
             if not isinstance(a_block['uses'], basestring):
                 log.fail('[uses] attribute must be a string')
+            
             if a_block.get('needs', None):
                 if isinstance(a_block['needs'], basestring):
                     a_block['needs'] = [a_block['needs']]
@@ -226,23 +220,27 @@ class Workflow(object):
                     log.fail(
                         '[needs] attribute must be a list of strings '
                         'or a string')
+
             if a_block.get('runs', None):
                 if isinstance(a_block['runs'], basestring):
-                    a_block['runs'] = [a_block['runs']]
+                    a_block['runs'] = self._normalize_params(a_block['runs'])
                 elif not self._is_list_of_strings(a_block['runs']):
                     log.fail(
                         '[runs] attribute must be a list of strings '
                         'or a string')
+
             if a_block.get('args', None):
                 if isinstance(a_block['args'], basestring):
-                    a_block['args'] = a_block['args'].split()
+                    a_block['args'] = self._normalize_params(a_block['args'])
                 elif not self._is_list_of_strings(a_block['args']):
                     log.fail(
                         '[args] attribute must be a list of strings '
                         'or a string')
+
             if a_block.get('env', None):
                 if not isinstance(a_block['env'], dict):
                     log.fail('[env] attribute must be a dict')
+
             if a_block.get('secrets', None):
                 if not self._is_list_of_strings(a_block['secrets']):
                     log.fail('[secrets] attribute must be a list of strings')
