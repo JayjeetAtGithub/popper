@@ -51,7 +51,7 @@ class WorkflowRunner(object):
         if dry_run or skip_secrets_prompt:
             return
         for _, a in wf.actions.items():
-            for s in a.get('secrets', []):
+            for s in a.secrets:
                 if s not in os.environ:
                     if os.environ.get('CI') == 'true':
                         log.fail('Secret {} not defined'.format(s))
@@ -68,19 +68,19 @@ class WorkflowRunner(object):
         actions_cache_path = os.path.join('/', 'tmp', 'actions')
 
         for _, a in wf.actions.items():
-            if ('docker://' in a['uses']
-                    or './' in a['uses'] or a['uses'] == 'sh'):
+            if ('docker://' in a.uses
+                    or './' in a.uses or a.uses == 'sh'):
                 continue
 
             url, service, user, repo, action_dir, version = scm.parse(
-                a['uses'])
+                a.uses)
 
             repo_dir = os.path.join(
                 actions_cache_path, service, user, repo
             )
 
-            a['repo_dir'] = repo_dir
-            a['action_dir'] = action_dir
+            a.props['repo_dir'] = repo_dir
+            a.props['action_dir'] = action_dir
 
             if dry_run:
                 continue
@@ -117,25 +117,25 @@ class WorkflowRunner(object):
         """
         for _, a in wf.actions.items():
 
-            if a['uses'] == 'sh':
-                a['runner'] = HostRunner(a, workspace, env, dry_run, skip_pull)
+            if a.uses == 'sh':
+                a.props['runner'] = HostRunner(a, workspace, env, dry_run, skip_pull)
                 continue
 
-            if a['uses'].startswith('./'):
+            if a.uses.startswith('./'):
                 if not os.path.isfile(
-                    os.path.join(scm.get_git_root_folder(), a['uses'],
+                    os.path.join(scm.get_git_root_folder(), a.uses,
                                  'Dockerfile')):
 
-                    a['runner'] = HostRunner(
+                    a.props['runner'] = HostRunner(
                         a, workspace, env, dry_run, skip_pull)
                     continue
 
             if runtime == 'docker':
-                a['runner'] = DockerRunner(
+                a.props['runner'] = DockerRunner(
                     a, workspace, env, dry_run, skip_pull)
 
             elif runtime == 'singularity':
-                a['runner'] = SingularityRunner(
+                a.props['runner'] = SingularityRunner(
                     a, workspace, env, dry_run, skip_pull)
 
     def run(self, action, skip_clone, skip_pull, skip, workspace,
@@ -186,7 +186,7 @@ class WorkflowRunner(object):
         if parallel:
             with ProcessPoolExecutor(max_workers=mp.cpu_count()) as ex:
                 flist = {
-                    ex.submit(wf.get_runner(a).run, reuse):
+                    ex.submit(wf.actions[a].props['runner'].run, reuse):
                         a for a in stage
                 }
                 popper.cli.flist = flist
@@ -195,7 +195,7 @@ class WorkflowRunner(object):
                     log.info('Action ran successfully !')
         else:
             for action in stage:
-                wf.get_runner(action).run(reuse)
+                wf.actions[action].props['runner'].run(reuse)
 
     @staticmethod
     def import_from_repo(action_ref, project_root):
@@ -252,16 +252,16 @@ class ActionRunner(object):
             f.close()
 
     def prepare_environment(self, set_env=False):
-        env = self.action.get('env', {})
+        env = self.action.env
 
-        for s in self.action.get('secrets', []):
+        for s in self.action.secrets:
             env.update({s: os.environ[s]})
 
         for e, v in self.env.items():
             env.update({e: v})
 
-        env['GITHUB_ACTION'] = self.action['name']
-        env['POPPER_ACTION'] = self.action['name']
+        env['GITHUB_ACTION'] = self.action.name
+        env['POPPER_ACTION'] = self.action.name
 
         if set_env:
             for k, v in env.items():
@@ -288,7 +288,7 @@ class DockerRunner(ActionRunner):
     def __init__(self, action, workspace, env, dry, skip_pull):
         super(DockerRunner, self).__init__(
             action, workspace, env, dry, skip_pull)
-        self.cid = pu.sanitized_name(self.action['name'])
+        self.cid = pu.sanitized_name(self.action.name)
         self.container = None
         if not find_executable('docker'):
             log.fail(
@@ -298,15 +298,15 @@ class DockerRunner(ActionRunner):
     def run(self, reuse=False):
         build = True
 
-        if 'docker://' in self.action['uses']:
-            tag = self.action['uses'].replace('docker://', '')
+        if 'docker://' in self.action.uses:
+            tag = self.action.uses.replace('docker://', '')
             if ':' not in tag:
                 tag += ":latest"
             build = False
             dockerfile_path = 'n/a'
-        elif './' in self.action['uses']:
+        elif './' in self.action.uses:
             action_dir = os.path.basename(
-                self.action['uses'].replace('./', ''))
+                self.action.uses.replace('./', ''))
 
             if self.env['GITHUB_REPOSITORY'] == 'unknown':
                 repo_id = ''
@@ -319,12 +319,12 @@ class DockerRunner(ActionRunner):
             tag = repo_id + action_dir + ':' + self.env['GITHUB_SHA']
 
             dockerfile_path = os.path.join(
-                scm.get_git_root_folder(), self.action['uses'])
+                scm.get_git_root_folder(), self.action.uses)
         else:
-            _, _, user, repo, _, version = scm.parse(self.action['uses'])
+            _, _, user, repo, _, version = scm.parse(self.action.uses)
             tag = '{}/{}:{}'.format(user, repo, version)
-            dockerfile_path = os.path.join(self.action['repo_dir'],
-                                           self.action['action_dir'])
+            dockerfile_path = os.path.join(self.action.props['repo_dir'],
+                                           self.action.props['action_dir'])
         log.debug('docker tag: {}'.format(tag))
         log.debug('dockerfile path: {}'.format(dockerfile_path))
 
@@ -353,7 +353,7 @@ class DockerRunner(ActionRunner):
         e = self.docker_start()
 
         if e != 0:
-            log.fail("Action '{}' failed!".format(self.action['name']))
+            log.fail("Action '{}' failed!".format(self.action.name))
 
     def docker_exists(self):
         if self.dry_run:
@@ -383,7 +383,7 @@ class DockerRunner(ActionRunner):
     def docker_create(self, img):
         log.info('{}[{}] docker create {} {}'.format(
             self.msg_prefix,
-            self.action['name'], img, ' '.join(self.action.get('args', ''))
+            self.action.name, img, ' '.join(self.action.args)
         ))
         if self.dry_run:
             return
@@ -404,25 +404,25 @@ class DockerRunner(ActionRunner):
         log.debug(
             'Invoking docker_create() method\n' +
             '  img: {}\n'.format(img) +
-            '  cmd: {}\n'.format(self.action.get('args', None)) +
+            '  cmd: {}\n'.format(self.action.args) +
             '  vol: {}\n'.format(volumes) +
-            '  args: {}'.format(self.action.get('args', None))
+            '  args: {}'.format(self.action.args)
         )
 
         self.container = docker_client.containers.create(
             image=img,
-            command=self.action.get('args', None),
+            command=self.action.args,
             name=self.cid,
             volumes=volumes,
             working_dir=env['GITHUB_WORKSPACE'],
             environment=env,
-            entrypoint=self.action.get('runs', None),
+            entrypoint=self.action.runs,
             detach=True
         )
 
     def docker_start(self):
         log.info('{}[{}] docker start '.format(self.msg_prefix,
-                                               self.action['name']))
+                                               self.action.name))
         if self.dry_run:
             return 0
         self.container.start()
@@ -435,7 +435,7 @@ class DockerRunner(ActionRunner):
     def docker_pull(self, img):
         if not self.skip_pull:
             log.info('{}[{}] docker pull {}'.format(self.msg_prefix,
-                                                    self.action['name'], img))
+                                                    self.action.name, img))
             if self.dry_run:
                 return
             docker_client.images.pull(repository=img)
@@ -447,7 +447,7 @@ class DockerRunner(ActionRunner):
 
     def docker_build(self, tag, path):
         log.info('{}[{}] docker build -t {} {}'.format(
-            self.msg_prefix, self.action['name'], tag, path))
+            self.msg_prefix, self.action.name, tag, path))
         if self.dry_run:
             return
         docker_client.images.build(path=path, tag=tag, rm=True, pull=True)
@@ -460,7 +460,7 @@ class SingularityRunner(ActionRunner):
     def __init__(self, action, workspace, env, dry_run, skip_pull):
         super(SingularityRunner, self).__init__(action, workspace, env,
                                                 dry_run, skip_pull)
-        self.cid = pu.sanitized_name(self.action['name'])
+        self.cid = pu.sanitized_name(self.action.name)
         if not find_executable('singularity'):
             log.fail(
                 'Could not find the singularity command.'
@@ -475,19 +475,19 @@ class SingularityRunner(ActionRunner):
                      'currently not supported.')
 
         build = True
-        if 'docker://' in self.action['uses']:
-            image = self.action['uses']
+        if 'docker://' in self.action.uses:
+            image = self.action.uses
             build = False
 
-        elif './' in self.action['uses']:
-            image = 'action/' + os.path.basename(self.action['uses'])
+        elif './' in self.action.uses:
+            image = 'action/' + os.path.basename(self.action.uses)
             build_path = os.path.join(
-                scm.get_git_root_folder(), self.action['uses'])
+                scm.get_git_root_folder(), self.action.uses)
 
         else:
-            image = '/'.join(self.action['uses'].split('/')[:2])
+            image = '/'.join(self.action.uses.split('/')[:2])
             build_path = os.path.join(
-                self.action['repo_dir'], self.action['action_dir'])
+                self.action.props['repo_dir'], self.action.props['action_dir'])
 
         container = self.cid + '.sif'
 
@@ -501,7 +501,7 @@ class SingularityRunner(ActionRunner):
         e = self.singularity_start(container)
 
         if e != 0:
-            log.fail('Action {} failed!'.format(self.action['name']))
+            log.fail('Action {} failed!'.format(self.action.name))
 
     @staticmethod
     def convert(dockerfile, singularityfile):
@@ -556,7 +556,7 @@ class SingularityRunner(ActionRunner):
         """
         if not self.skip_pull:
             log.info('{}[{}] singularity pull {} {}'.format(
-                self.msg_prefix, self.action['name'], container, image)
+                self.msg_prefix, self.action.name, container, image)
             )
             if not self.dry_run:
                 s_client.pull(image=image, name=container)
@@ -571,7 +571,7 @@ class SingularityRunner(ActionRunner):
         """
         filename = 'Singularity.{}'.format(container[:-4])
         log.info('{}[{}] singularity build {} {}'.format(
-            self.msg_prefix, self.action['name'],
+            self.msg_prefix, self.action.name,
             container, os.path.join(build_path, filename))
         )
         if not self.dry_run:
@@ -593,19 +593,19 @@ class SingularityRunner(ActionRunner):
                            '/github/workflow/event.json')
         ]
 
-        args = self.action.get('args', None)
-        runs = self.action.get('runs', None)
+        args = self.action.args
+        runs = self.action.runs
         ecode = None
 
         if runs:
             info = '{}[{}] singularity exec {} {}'.format(
-                self.msg_prefix, self.action['name'],
+                self.msg_prefix, self.action.name,
                 container, runs)
             commands = runs
             start = s_client.execute
         else:
             info = '{}[{}] singularity run {} {}'.format(
-                self.msg_prefix, self.action['name'],
+                self.msg_prefix, self.action.name,
                 container, args)
             commands = args
             start = s_client.run
@@ -643,30 +643,30 @@ class HostRunner(ActionRunner):
                      'on the host.')
 
         root = scm.get_git_root_folder()
-        if self.action['uses'] == 'sh':
-            cmd = self.action.get('runs', [])
+        if self.action.uses == 'sh':
+            cmd = self.action.runs
             if cmd:
                 cmd[0] = os.path.join(root, cmd[0])
-            cmd.extend(self.action.get('args', []))
+            cmd.extend(self.action.args)
 
             if not self.dry_run:
                 os.chdir(root)
         else:
-            cmd = self.action.get('runs', ['entrypoint.sh'])
+            cmd = self.action.runs
             cmd[0] = os.path.join('./', cmd[0])
-            cmd.extend(self.action.get('args', []))
+            cmd.extend(self.action.args)
 
             if not self.dry_run:
-                if 'repo_dir' in self.action:
-                    os.chdir(self.action['repo_dir'])
-                    cmd[0] = os.path.join(self.action['repo_dir'], cmd[0])
+                if 'repo_dir' in self.action.props:
+                    os.chdir(self.action.props['repo_dir'])
+                    cmd[0] = os.path.join(self.action.props['repo_dir'], cmd[0])
                 else:
-                    os.chdir(os.path.join(root, self.action['uses']))
-                    cmd[0] = os.path.join(root, self.action['uses'], cmd[0])
+                    os.chdir(os.path.join(root, self.action.uses))
+                    cmd[0] = os.path.join(root, self.action.uses, cmd[0])
 
         self.prepare_environment(set_env=True)
 
-        log.info('{}[{}] {}'.format(self.msg_prefix, self.action['name'],
+        log.info('{}[{}] {}'.format(self.msg_prefix, self.action.name,
                                     ' '.join(cmd)))
 
         if self.dry_run:
@@ -702,4 +702,4 @@ class HostRunner(ActionRunner):
         os.chdir(self.cwd)
 
         if ecode != 0:
-            log.fail("Action '{}' failed.".format(self.action['name']))
+            log.fail("Action '{}' failed.".format(self.action.name))

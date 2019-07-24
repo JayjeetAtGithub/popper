@@ -38,19 +38,20 @@ class Action(object):
         self.attrs = attrs
         self.name = name
         self.uses = attrs.get('uses', None)
-        self.needs = attrs.get('needs', None)
+        self.needs = attrs.get('needs', list())
         # self.needs = self.needs if self.needs else self.needs
         self.args = self._normalize(attrs.get('args', None))
         self.runs = self._normalize(attrs.get('runs', None))
-        self.env = attrs.get('env', None)
+        self.env = attrs.get('env', dict())
         self.secrets = self._normalize(attrs.get('secrets', None))
-        self.next = None
-        
+        self.next = set()
+        self.props = dict()
+
         self._validate_action_block()
 
     def _normalize(self, params):
         if not params:
-            return None
+            return list()
         if isinstance(params, str):
             return params.split(" ")
         elif isinstance(params, list):
@@ -103,16 +104,23 @@ class Workflow(object):
         name, attrs = self._validate_wfile(self._parsed_wfile)
 
         self.actions = dict()
-        self.root = None
+        self.root = set()
         self.name = name
         self.attrs = attrs
         self.on = attrs.get('on', 'push')
-        self.resolves = attrs.get('resolves', None)
+        self.resolves = attrs.get('resolves', list())
+        self.props = dict()
         # self.resolves = [self.resolves] if self.resolves else None
 
         self._validate_workflow_block()
         self._wrap_actions(self._parsed_wfile['action'])
         self._complete_graph()
+
+    def get_action(self, action_name):
+        try:
+            return self.actions[action_name]
+        except KeyError:
+            log.fail('The action {} doesn\'t exist.'.format(action_name))
 
     ## Parent function to call all the workflow file validators.
     def _validate_wfile(self, parsed_wfile):
@@ -187,15 +195,14 @@ class Workflow(object):
         """Generator of stages. A stages is a list of actions that can be
         executed in parallel.
         """
-        current_stage = self._workflow['root']
+        current_stage = self.root
 
         while current_stage:
             yield current_stage
             next_stage = set()
             for n in current_stage:
                 next_stage.update(
-                    self._workflow['action'][n].get(
-                        'next', set()))
+                    self.actions[n].next)
             current_stage = next_stage
 
     ## Functions to generate and manipulate workflow graphs.
@@ -240,17 +247,16 @@ class Workflow(object):
             skip (list) : The list actions to skip if applicable.
         """
 
-        def _traverse(entrypoint, reachable, workflow):
+        def _traverse(entrypoint, reachable):
             for node in entrypoint:
                 reachable.add(node)
-                _traverse(workflow['action'][node].get(
-                    'next', []), reachable, workflow)
+                _traverse(self.actions[node].next, reachable)
 
         reachable = set()
-        skipped = set(self._workflow['props'].get('skip_list', []))
-        actions = set(map(lambda a: a[0], self._workflow['action'].items()))
+        skipped = set(self.props.get('skip_list', []))
+        actions = set(map(lambda a: a[0], self.actions.items()))
 
-        _traverse(self._workflow['root'], reachable, self._workflow)
+        _traverse(self.root, reachable)
 
         unreachable = actions - reachable
         if unreachable - skipped:
@@ -264,7 +270,7 @@ class Workflow(object):
                 )
 
         for a in unreachable:
-            self._workflow['action'].pop(a)
+            self.actions.pop(a)
 
     @staticmethod
     def skip_actions(wf, skip_list=list()):
@@ -282,22 +288,22 @@ class Workflow(object):
         for sa_name in skip_list:
 
             # Isolate the skipped actions totally.
-            sa_block = workflow.get_action(sa_name)
-            sa_block['next'].clear()
-            sa_block['needs'].clear()
+            sa_block = workflow.actions.get_action(sa_name)
+            sa_block.next.clear()
+            sa_block.needs.clear()
 
             # Handle skipping of root action's
             if sa_name in workflow.root:
                 workflow.root.remove(sa_name)
 
             # Handle skipping of not-root action's
-            for a_name, a_block in workflow.actions.items():
+            for action_name, action_block in workflow.actions.items():
 
-                if sa_name in a_block.get('next', set()):
-                    a_block['next'].remove(sa_name)
+                if sa_name in action_block.next:
+                    action_block.next.remove(sa_name)
                 
-                if sa_name in a_block.get('needs', list()):
-                    a_block['needs'].remove(sa_name)
+                if sa_name in action_block.needs:
+                    action_block.needs.remove(sa_name)
 
         workflow.props['skip_list'] = list(skip_list)
         return workflow
