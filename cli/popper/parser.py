@@ -39,7 +39,7 @@ class Action(object):
         self.name = name
         self.uses = attrs.get('uses', None)
         self.needs = attrs.get('needs', None)
-        self.needs = list(self.needs) if self.needs else self.needs
+        # self.needs = self.needs if self.needs else self.needs
         self.args = self._normalize(attrs.get('args', None))
         self.runs = self._normalize(attrs.get('runs', None))
         self.env = attrs.get('env', None)
@@ -108,10 +108,10 @@ class Workflow(object):
         self.attrs = attrs
         self.on = attrs.get('on', 'push')
         self.resolves = attrs.get('resolves', None)
-        self.resolves = list(self.resolves) if self.resolves else None
+        # self.resolves = [self.resolves] if self.resolves else None
 
         self._validate_workflow_block()
-        self._wrap_actions(self._parsed_wfile.get('action', None))
+        self._wrap_actions(self._parsed_wfile['action'])
         self._complete_graph()
 
     ## Parent function to call all the workflow file validators.
@@ -120,12 +120,12 @@ class Workflow(object):
             * Check for multiple workflow blocks.
             * Check for duplicate action blocks.
         """
-        self._check_multiple_workflow_blocks()
-        self._check_duplicate_actions()
+        self._check_workflow_blocks()
+        self._check_action_blocks()
         return list(parsed_wfile['workflow'].items())[0]
 
     ## Functions for validating the entire `.workflow` file.
-    def _check_multiple_workflow_blocks(self):
+    def _check_workflow_blocks(self):
         """Checks whether the workflow file contains more than
         one workflow blocks. If True, it throws error."""
         wf_count = len(self._parsed_wfile.get('workflow', dict()).items())
@@ -139,9 +139,13 @@ class Workflow(object):
         if not set(self.attrs['resolves']).intersection(actions):
             log.fail('Can\'t resolve any of the actions.')
 
-    def _check_duplicate_actions(self):
+    def _check_action_blocks(self):
         """Checks whether duplicate action blocks are
         present or not."""
+        actions = self._parsed_wfile.get('action', None)
+        if not actions:
+            log.fail('At least one action block must be present.')
+
         parsed_acount = 0
         if self._parsed_wfile.get('action', None):
             parsed_acount = len(list(self._parsed_wfile['action'].items()))
@@ -167,16 +171,13 @@ class Workflow(object):
         if not list_of_strings(self.resolves):
             log.fail('[resolves] attribute must be a string or a list.')
 
-        if not isinstance(self.on, str):
+        if self.on and not isinstance(self.on, str):
             log.fail('[on] attribute must be a string or a list.')
 
     ## Function to wrap the actions along with other metadata
     def _wrap_actions(self, actions_dict):
         """Validate the action part of the worflow and 
         initialize Action objects."""
-        if not actions_dict:
-            log.fail('At least one action block must be present.')
-
         for name, attrs in actions_dict.items():
             action = Action(name, **attrs)
             self.actions[name] = action
@@ -197,6 +198,7 @@ class Workflow(object):
                         'next', set()))
             current_stage = next_stage
 
+    ## Functions to generate and manipulate workflow graphs.
     def _complete_graph_util(self, entrypoint, nwd):
         """A GHA workflow is defined by specifying edges that point to the
         previous nodes they depend on. To make the workflow easier to process,
@@ -210,7 +212,7 @@ class Workflow(object):
         for node in entrypoint:
             if self.actions.get(node, None):
                 if self.actions[node].needs:
-                    for n in self.actions.node.needs:
+                    for n in self.actions[node].needs:
                         self._complete_graph_util([n], nwd)
                         if not self.actions[n].next:
                             self.actions[n].next = set()
@@ -224,10 +226,11 @@ class Workflow(object):
         """Driver function to run the recursive function
         `_complete_graph_util()` which adds forward edges.
         """
+        print(self.resolves)
         self._check_for_empty_workflow()
         nodes_without_dependencies = set()
         self._complete_graph_util(self.resolves, nodes_without_dependencies)
-        self.root = nwd
+        self.root = nodes_without_dependencies
 
     def check_for_unreachable_actions(self, skip=None):
         """Validates a workflow by checking for unreachable nodes / gaps
