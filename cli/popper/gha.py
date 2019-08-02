@@ -432,7 +432,7 @@ class SingularityRunner(ActionRunner):
             log.fail(
                 'Could not find the singularity command.'
             )
-        s_client.quiet = True
+        # s_client.quiet = True
 
     def run(self, reuse=False):
         """Run the action.
