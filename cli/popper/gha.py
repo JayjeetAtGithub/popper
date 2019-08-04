@@ -501,6 +501,7 @@ class SingularityRunner(ActionRunner):
         pwd = os.getcwd()
         os.chdir(build_path)
         recipefile = SingularityRunner.get_reciple_file(build_path, container)
+        print('Inside static build from recipe')
         s_client.build(recipe=recipefile, image=container, build_folder=pwd)
         os.chdir(pwd)
 
@@ -521,6 +522,7 @@ class SingularityRunner(ActionRunner):
     def singularity_build_from_image(self, image, container):
         """Build container from Docker image.
         """
+        print('Building from image')
         if not self.skip_pull:
             log.info('{}[{}] singularity pull {} {}'.format(
                 self.msg_prefix, self.action['name'], container, image)
@@ -536,6 +538,7 @@ class SingularityRunner(ActionRunner):
     def singularity_build_from_recipe(self, build_path, container):
         """Build container from recipefile.
         """
+        print('Building from recipe')
         filename = 'Singularity.{}'.format(container[:-4])
         log.info('{}[{}] singularity build {} {}'.format(
             self.msg_prefix, self.action['name'],
