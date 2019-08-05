@@ -458,7 +458,7 @@ class SingularityRunner(ActionRunner):
 
         container = self.cid + '.sif'
 
-        if self.singularity_exists(container) and not self.skip_pull:
+        if not self.skip_pull:
             self.singularity_rm(container)
         if build:
             self.singularity_build_from_recipe(build_path, container)
