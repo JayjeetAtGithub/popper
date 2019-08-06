@@ -457,16 +457,14 @@ class SingularityRunner(ActionRunner):
                 self.action['repo_dir'], self.action['action_dir'])
 
         container = self.cid + '.sif'
-
-        if self.singularity_exists(container) and not self.skip_pull:
-            self.singularity_rm(container)
-        if build:
-            self.singularity_build_from_recipe(build_path, container)
-        else:
-            self.singularity_build_from_image(image, container)
+        
+        if not self.singularity_exists(container)
+            if build:
+                self.singularity_build_from_recipe(build_path, container)
+            else:
+                self.singularity_build_from_image(image, container)
 
         e = self.singularity_start(container)
-
         if e != 0:
             log.fail('Action {} failed!'.format(self.action['name']))
 
