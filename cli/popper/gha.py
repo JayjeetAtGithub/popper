@@ -463,7 +463,7 @@ class SingularityRunner(ActionRunner):
                 self.singularity_build_from_recipe(build_path, container)
             else:
                 self.singularity_build_from_image(image, container)
-
+        
         e = self.singularity_start(container)
         if e != 0:
             log.fail('Action {} failed!'.format(self.action['name']))
