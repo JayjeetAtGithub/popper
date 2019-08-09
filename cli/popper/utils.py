@@ -1,6 +1,8 @@
 import os
 import re
 import sys
+import uuid
+import hashlib
 import threading
 from builtins import str
 
@@ -12,14 +14,33 @@ from popper.cli import log
 from popper import scm
 
 
-def setup_cache():
-    """Set up popper cache file path.
+def setup_base_cache():
+    """Sets up the base cache directory.
     """
-    xdg_cache_dir = os.environ.get(
-        'XDG_CACHE_HOME', os.path.join(os.environ['HOME'], '.cache'))
-    if not os.path.isdir(xdg_cache_dir):
-        os.makedirs(xdg_cache_dir)
-    return os.path.join(xdg_cache_dir, '.popper_cache.yml')
+    if os.environ.get('POPPER_CACHE_DIR', None):
+        base_cache = os.environ['POPPER_CACHE_DIR']
+    else:
+        base_cache = os.path.join(
+                os.environ.get('XDG_CACHE_HOME', os.path.join(os.environ['HOME'], '.cache')),
+                '.popper')
+
+    if not os.path.exists(base_cache):
+        os.makedirs(base_cache)
+
+    return base_cache
+
+
+def setup_search_cache():
+    """Set up the popper search cache.
+    """
+    base_cache = setup_base_cache()
+    search_cache = os.path.join(base_cache, 'search')
+
+    if not os.path.isdir(search_cache):
+        os.makedirs(search_cache)
+
+    search_cache_file = os.path.join(search_cache, '.popper_search_cache.yml')
+    return search_cache_file
 
 
 def decode(line):
@@ -173,7 +194,7 @@ def fetch_metadata(update_cache=False):
     Returns:
         dict: All metadata related to the actions.
     """
-    cache_file = setup_cache()
+    cache_file = setup_search_cache()
 
     update = False
     if (not os.path.isfile(cache_file)) or update_cache:
@@ -255,7 +276,7 @@ def fetch_readme_for_repo(user, repo, path_to_action, version=None):
     return r.text
 
 
-def sanitized_name(name):
+def sanitized_name(name, wid):
     """Clean an action name and change it to
     proper format. It replaces all the unwanted
     characters with `_`.
@@ -266,7 +287,10 @@ def sanitized_name(name):
     Returns:
         str: The sanitized action name.
     """
-    return "popper_{}".format(re.sub('[^a-zA-Z0-9_.-]', '_', name))
+    return "popper_{}_{}".format(
+        re.sub('[^a-zA-Z0-9_.-]', '_', name),
+        wid
+    )
 
 
 def of_type(param, valid_types):
@@ -304,3 +328,29 @@ def of_type(param, valid_types):
                 return False not in res
 
     return False
+
+
+def get_workflow_id(*args):
+    """Function to generate an unique hashid 
+    for identifying a workflow by joining the args 
+    provided.
+
+    Args:
+        args (tuple): The items to join in order to form
+                      an identifier.
+
+    Returns:
+        str: The generated hashid.
+    """
+    identifier = '_'.join([str(x) for x in args])
+    workflow_id = str(hashlib.md5(identifier.encode()).hexdigest())
+    return workflow_id
+
+
+def write_file(path, content=''):
+    """Create and write contents to a file. If no content is
+    provided a blank file is created.
+    """
+    f = open(path, 'w')
+    f.write(content)
+    f.close()
