@@ -547,10 +547,12 @@ class TestSingularityRunner(unittest.TestCase):
         self.assertEqual(
             file,
             os.environ['HOME'] +
-            '/.cache/.popper/actions/12345/github.com/actions/bin/sh/Singularity.12345')
+            '/.cache/.popper/actions/12345/github.com/actions/bin/sh/' +
+            'Singularity.12345')
         os.remove(
             os.environ['HOME'] +
-            '/.cache/.popper/actions/12345/github.com/actions/bin/sh/Dockerfile')
+            '/.cache/.popper/actions/12345/github.com/actions/bin/sh/' +
+            'Dockerfile')
         self.assertRaises(
             SystemExit,
             SingularityRunner.get_recipe_file,
@@ -604,7 +606,9 @@ class TestSingularityRunner(unittest.TestCase):
         os.environ['RUNTIME'] != 'singularity',
         'Skipping singularity tests...')
     def test_setup_singularity_cache(self):
-        cache_path = os.path.join(os.environ['HOME'], '.cache/.popper/singularity/12345')
+        cache_path = os.path.join(
+            os.environ['HOME'],
+            '.cache/.popper/singularity/12345')
         shutil.rmtree(cache_path)
         self.assertEqual(os.path.exists(cache_path), False)
         SingularityRunner.setup_singularity_cache('12345')
