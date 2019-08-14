@@ -193,6 +193,8 @@ class WorkflowRunner(object):
 
     @staticmethod
     def run_stage(wf, stage, reuse=False, parallel=False):
+        """Runs actions in a stage either parallely or
+        sequentially."""
         if parallel:
             with ProcessPoolExecutor(max_workers=mp.cpu_count()) as ex:
                 flist = {
@@ -517,6 +519,15 @@ class SingularityRunner(ActionRunner):
 
     @staticmethod
     def setup_singularity_cache(wid):
+        """Setup the singularity cache directory based
+        on the workflow id.
+
+        Args:
+            wid (str): The workflow id.
+
+        Returns:
+            str: The path to the cache dir.
+        """
         singularity_cache = os.path.join(
             pu.setup_base_cache(), 'singularity', wid)
         if not os.path.exists(singularity_cache):
@@ -631,6 +642,16 @@ class SingularityRunner(ActionRunner):
 
     @staticmethod
     def build_from_recipe(build_source, build_dest, container, wid):
+        """Helper function to build the singularity image.
+
+        Args:
+            build_source (str): The source dir from where to build the
+                                container image.
+            build_dest (str): The destination dir where to put the built
+                              container image.
+            container (str): The name of the container image.
+            wid (str): The workflow id.
+        """
         pwd = os.getcwd()
         os.chdir(build_source)
         recipefile = SingularityRunner.get_recipe_file(build_source, wid)
@@ -798,6 +819,11 @@ class HostRunner(ActionRunner):
             log.fail("Action '{}' failed.".format(self.action['name']))
 
     def host_prepare(self):
+        """Prepare the commands and environment to start execution.
+
+        Returns:
+            str: The command to execute.
+        """
         root = scm.get_git_root_folder()
         if self.action['uses'] == 'sh':
             cmd = self.action.get('runs', [])
@@ -823,6 +849,13 @@ class HostRunner(ActionRunner):
         return cmd
 
     def host_start(self, cmd):
+        """Start the execution of the command on the host machine.
+
+        Args:
+            cmd (str): The command to execute.
+        Returns:
+            int: The returncode of the process.
+        """
         log.info('{}[{}] {}'.format(self.msg_prefix, self.action['name'],
                                     ' '.join(cmd)))
 

@@ -600,6 +600,16 @@ class TestSingularityRunner(unittest.TestCase):
              'action/./actions/jshint',
              '/tmp/test_folder/./actions/jshint'))
 
+    @unittest.skipIf(
+        os.environ['RUNTIME'] != 'singularity',
+        'Skipping singularity tests...')
+    def test_setup_singularity_cache(self):
+        cache_path = os.path.join(os.environ['HOME'], '.cache/.popper/singularity/12345')
+        shutil.rmtree(cache_path)
+        self.assertEqual(os.path.exists(cache_path), False)
+        SingularityRunner.setup_singularity_cache('12345')
+        self.assertEqual(os.path.exists(cache_path), True)
+
 
 class TestHostRunner(unittest.TestCase):
 
