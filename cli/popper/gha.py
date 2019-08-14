@@ -512,10 +512,11 @@ class SingularityRunner(ActionRunner):
         super(SingularityRunner, self).__init__(action, workspace, env,
                                                 dry_run, skip_pull, wid)
         s_client.quiet = True
-
-    def setup_singularity_cache(self):
+    
+    @staticmethod
+    def setup_singularity_cache(wid):
         singularity_cache = os.path.join(
-            pu.setup_base_cache(), 'singularity', self.wid)
+            pu.setup_base_cache(), 'singularity', wid)
         if not os.path.exists(singularity_cache):
             os.makedirs(singularity_cache)
         return singularity_cache
@@ -555,7 +556,7 @@ class SingularityRunner(ActionRunner):
             reuse (bool): Whether to reuse containers or not.
         """
         self.check_executable('singularity')
-        singularity_cache = self.setup_singularity_cache()
+        singularity_cache = SingularityRunner.setup_singularity_cache(self.wid)
 
         if reuse:
             log.fail('Reusing containers in singularity runtime is '

@@ -164,16 +164,22 @@ class TestWorkflowRunner(unittest.TestCase):
         """)
         wf = Workflow('/tmp/test_folder/a.workflow')
         wf.parse()
-        WorkflowRunner.setup_workflow_cache('12345')
+
+        # Download actions in the default cache directory.
         WorkflowRunner.download_actions(wf, False, False, '12345')
         self.assertEqual(os.path.exists(os.environ['HOME'] + '/.cache/.popper/actions/12345/github.com'), True)
+
+        # Download actions in custom cache directory
         os.environ['POPPER_CACHE_DIR'] = '/tmp/somedir'
-        WorkflowRunner.setup_workflow_cache('12345')
         WorkflowRunner.download_actions(wf, False, False, '12345')
         self.assertEqual(os.path.exists('/tmp/somedir/actions/12345/github.com'), True)
         os.environ.pop('POPPER_CACHE_DIR')
+
+        # Release resources.
         shutil.rmtree('/tmp/somedir')
         shutil.rmtree(os.environ['HOME'] + '/.cache/.popper/actions/12345/github.com')
+
+        # Test with skipclone flag when action not present in cache.
         self.assertRaises(
             SystemExit,
             WorkflowRunner.download_actions,
@@ -332,7 +338,6 @@ class TestDockerRunner(unittest.TestCase):
         self.create_workflow_file(workflow)
         self.wf = Workflow('/tmp/test_folder/a.workflow')
         self.wf.parse()
-        WorkflowRunner.setup_workflow_cache('12345')
         WorkflowRunner.download_actions(self.wf, False, False, '12345')
         WorkflowRunner.instantiate_runners(
             'docker', self.wf, '/tmp/test_folder', False, False, '12345')
@@ -477,11 +482,11 @@ class TestSingularityRunner(unittest.TestCase):
         self.create_workflow_file(workflow)
         self.wf = Workflow('/tmp/test_folder/a.workflow')
         self.wf.parse()
-        WorkflowRunner.setup_workflow_cache('12345')
         WorkflowRunner.download_actions(self.wf, False, False, '12345')
         WorkflowRunner.instantiate_runners(
             'singularity', self.wf, '/tmp/test_folder', False, False, '12345')
         self.runner = self.wf.action['sample action']['runner']
+        SingularityRunner.setup_singularity_cache('12345')
 
     def tearDown(self):
         os.chdir('/tmp')
