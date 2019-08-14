@@ -34,7 +34,7 @@ class WorkflowRunner(object):
     def __init__(self, workflow):
         self.wf = workflow
         self.wf.parse()
-        self.wid = pu.get_workflow_id(os.getuid(), self.wf.workflow_path)
+        self.wid = pu.get_id(os.getuid(), self.wf.workflow_path)
         log.debug('workflow:\n{}'.format(
             yaml.dump(self.wf, default_flow_style=False, default_style='')))
 

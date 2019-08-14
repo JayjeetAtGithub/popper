@@ -340,7 +340,7 @@ def of_type(param, valid_types):
     return False
 
 
-def get_workflow_id(*args):
+def get_id(*args):
     """Function to generate an unique hashid
     for identifying a workflow by joining the args
     provided.

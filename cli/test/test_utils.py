@@ -210,3 +210,7 @@ class TestUtils(unittest.TestCase):
             self.assertEqual(f.read(), "Hello world")
         with open('testfile2.txt', 'r') as f:
             self.assertEqual(f.read(), '')
+
+    def test_get_id(self):
+        id = pu.get_id('abcd', 1234, 'efgh')
+        self.assertEqual(id, 'cbae02068489f7577862718287862a3b')
