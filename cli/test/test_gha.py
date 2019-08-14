@@ -617,7 +617,7 @@ class TestHostRunner(unittest.TestCase):
             args = ["echo", "Hello"]
         }
         """
-        pu.write_file(workflow)
+        pu.write_file('/tmp/test_folder/a.workflow', workflow)
         self.wf = Workflow('/tmp/test_folder/a.workflow')
         self.wf.parse()
         WorkflowRunner.instantiate_runners(
