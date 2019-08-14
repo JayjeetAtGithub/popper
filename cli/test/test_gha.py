@@ -684,7 +684,6 @@ class TestConcurrentExecution(unittest.TestCase):
 
     def setUp(self):
         os.makedirs('/tmp/test_folder/gha-demo')
-        # log.setLevel('CRITICAL')
         git.Repo.clone_from(
             'https://github.com/JayjeetAtGithub/popper-scaffold-workflow',
             '/tmp/test_folder/gha-demo')
@@ -702,7 +701,6 @@ class TestConcurrentExecution(unittest.TestCase):
     def tearDown(self):
         os.chdir('/tmp')
         shutil.rmtree('/tmp/test_folder')
-        # log.setLevel('NOTSET')
 
     def test_run(self):
         os.environ['PHONY_SECRET'] = '1234'
