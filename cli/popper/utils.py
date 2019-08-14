@@ -15,7 +15,10 @@ from popper import scm
 
 
 def setup_base_cache():
-    """Sets up the base cache directory.
+    """Set up the base cache directory.
+
+    Returns:
+        str: The path to the base cache directory.
     """
     if os.environ.get('POPPER_CACHE_DIR', None):
         base_cache = os.environ['POPPER_CACHE_DIR']
@@ -36,6 +39,9 @@ def setup_base_cache():
 
 def setup_search_cache():
     """Set up the popper search cache.
+
+    Returns:
+        str: The path to the search cache file.
     """
     base_cache = setup_base_cache()
     search_cache = os.path.join(base_cache, 'search')
@@ -354,6 +360,10 @@ def get_workflow_id(*args):
 def write_file(path, content=''):
     """Create and write contents to a file. If no content is
     provided a blank file is created.
+
+    Args:
+        path (str): The path where the file would be created.
+        content (str): The content to write in the file.
     """
     f = open(path, 'w')
     f.write(content)

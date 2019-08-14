@@ -201,3 +201,12 @@ class TestUtils(unittest.TestCase):
             "project": "popper"
         }
         self.assertEqual(pu.of_type(param, ['str', 'dict']), True)
+
+    def test_write_file(self):
+        content = "Hello world"
+        pu.write_file('testfile1.txt', content)
+        pu.write_file('testfile2.txt')
+        with open('testfile1.txt', 'r') as f:
+            self.assertEqual(f.read(), "Hello world")
+        with open('testfile2.txt', 'r') as f:
+            self.assertEqual(f.read(), '')
