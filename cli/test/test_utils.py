@@ -170,8 +170,12 @@ class TestUtils(unittest.TestCase):
         try:
             self.assertEqual(cache_dir, os.environ['XDG_CACHE_HOME'])
         except KeyError:
-            self.assertEqual(cache_dir, os.path.join(os.environ['HOME'], '.cache/.popper'))
-        
+            self.assertEqual(
+                cache_dir,
+                os.path.join(
+                    os.environ['HOME'],
+                    '.cache/.popper'))
+
         os.environ['POPPER_CACHE_DIR'] = '/tmp/popper'
         cache_dir = pu.setup_base_cache()
         self.assertEqual(cache_dir, '/tmp/popper')
@@ -179,7 +183,11 @@ class TestUtils(unittest.TestCase):
 
     def test_setup_search_cache(self):
         search_cache_dir = pu.setup_search_cache()
-        self.assertEqual(search_cache_dir, os.path.join(os.environ['HOME'], '.cache/.popper/search/.popper_search_cache.yml'))
+        self.assertEqual(
+            search_cache_dir,
+            os.path.join(
+                os.environ['HOME'],
+                '.cache/.popper/search/.popper_search_cache.yml'))
 
     def test_of_type(self):
         param = [u"hello", u"world"]

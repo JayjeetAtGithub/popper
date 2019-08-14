@@ -167,17 +167,24 @@ class TestWorkflowRunner(unittest.TestCase):
 
         # Download actions in the default cache directory.
         WorkflowRunner.download_actions(wf, False, False, '12345')
-        self.assertEqual(os.path.exists(os.environ['HOME'] + '/.cache/.popper/actions/12345/github.com'), True)
+        self.assertEqual(
+            os.path.exists(
+                os.environ['HOME'] +
+                '/.cache/.popper/actions/12345/github.com'),
+            True)
 
         # Download actions in custom cache directory
         os.environ['POPPER_CACHE_DIR'] = '/tmp/somedir'
         WorkflowRunner.download_actions(wf, False, False, '12345')
-        self.assertEqual(os.path.exists('/tmp/somedir/actions/12345/github.com'), True)
+        self.assertEqual(os.path.exists(
+            '/tmp/somedir/actions/12345/github.com'), True)
         os.environ.pop('POPPER_CACHE_DIR')
 
         # Release resources.
         shutil.rmtree('/tmp/somedir')
-        shutil.rmtree(os.environ['HOME'] + '/.cache/.popper/actions/12345/github.com')
+        shutil.rmtree(
+            os.environ['HOME'] +
+            '/.cache/.popper/actions/12345/github.com')
 
         # Test with skipclone flag when action not present in cache.
         self.assertRaises(
@@ -356,18 +363,20 @@ class TestDockerRunner(unittest.TestCase):
         'Skipping docker tests...')
     def test_get_build_resources(self):
         res = self.runner.get_build_resources()
-        self.assertTupleEqual(res,
-        (True, 
-        'actions/bin:master', 
-        os.environ['HOME']+'/.cache/.popper/actions/12345/github.com/actions/bin/sh'))
+        self.assertTupleEqual(
+            res,
+            (True,
+             'actions/bin:master',
+             os.environ['HOME'] +
+             '/.cache/.popper/actions/12345/github.com/actions/bin/sh'))
         self.runner.action['uses'] = 'docker://debian:buster-slim'
         res = self.runner.get_build_resources()
         self.assertTupleEqual(res,
-        (False, 'debian:buster-slim', None))
+                              (False, 'debian:buster-slim', None))
         self.runner.action['uses'] = './actions/jshint'
         res = self.runner.get_build_resources()
-        self.assertTupleEqual(res, 
-        (True, 'jshint:unknown', '/tmp/test_folder/./actions/jshint'))
+        self.assertTupleEqual(
+            res, (True, 'jshint:unknown', '/tmp/test_folder/./actions/jshint'))
 
     @unittest.skipIf(
         os.environ['RUNTIME'] != 'docker',
@@ -406,7 +415,10 @@ class TestDockerRunner(unittest.TestCase):
         self.assertEqual(self.runner.docker_image_exists(
             'debian:buster-slim'), False)
         self.runner.skip_pull = True
-        self.assertRaises(SystemExit, self.runner.docker_pull, 'debian:buster-slim')
+        self.assertRaises(
+            SystemExit,
+            self.runner.docker_pull,
+            'debian:buster-slim')
         self.runner.skip_pull = False
         self.runner.docker_pull('debian:buster-slim')
         self.assertEqual(self.runner.docker_image_exists(
@@ -452,7 +464,7 @@ class TestDockerRunner(unittest.TestCase):
         self.assertEqual(self.runner.docker_exists(), True)
         self.runner.docker_rm()
 
-    
+
 class TestSingularityRunner(unittest.TestCase):
 
     def create_workflow_file(self, content):
@@ -510,9 +522,8 @@ class TestSingularityRunner(unittest.TestCase):
     def test_singularity_rm(self):
         self.create_file('/tmp/test_folder/testimg.sif', 'fake image file')
         self.runner.singularity_rm('/tmp/test_folder/testimg.sif')
-        self.assertEqual(
-            self.runner.singularity_exists('/tmp/test_folder/testimg.sif'), False
-        )
+        self.assertEqual(self.runner.singularity_exists(
+            '/tmp/test_folder/testimg.sif'), False)
 
     @unittest.skipIf(
         os.environ['RUNTIME'] != 'singularity',
@@ -520,35 +531,65 @@ class TestSingularityRunner(unittest.TestCase):
     def test_singularity_build_from_image(self):
         self.runner.singularity_build_from_image(
             'docker://debian:buster-slim',
-            os.path.join(os.environ['HOME'], '.cache/.popper/singularity/12345/testimg.sif'))
-        self.assertEqual(os.path.exists(os.path.join(os.environ['HOME'], '.cache/.popper/singularity/12345/testimg.sif')), True)
-        os.remove(os.path.join(os.environ['HOME'], '.cache/.popper/singularity/12345/testimg.sif'))
+            os.path.join(
+                os.environ['HOME'],
+                '.cache/.popper/singularity/12345/testimg.sif'))
+        self.assertEqual(
+            os.path.exists(
+                os.path.join(
+                    os.environ['HOME'],
+                    '.cache/.popper/singularity/12345/testimg.sif')),
+            True)
+        os.remove(
+            os.path.join(
+                os.environ['HOME'],
+                '.cache/.popper/singularity/12345/testimg.sif'))
         self.runner.skip_pull = True
         self.assertRaises(
             SystemExit,
             self.runner.singularity_build_from_image,
             'docker://debian:buster-slim',
-            os.path.join(os.environ['HOME'], '.cache/.popper/singularity/12345/testimg.sif'))
+            os.path.join(
+                os.environ['HOME'],
+                '.cache/.popper/singularity/12345/testimg.sif'))
 
     @unittest.skipIf(
         os.environ['RUNTIME'] != 'singularity',
         'Skipping singularity tests...')
     def test_singularity_build_from_recipe(self):
-        os.chdir(os.path.join(os.environ['HOME'], '.cache/.popper/actions/12345/github.com/actions/bin/sh'))
+        os.chdir(
+            os.path.join(
+                os.environ['HOME'],
+                '.cache/.popper/actions/12345/github.com/actions/bin/sh'))
         self.runner.singularity_build_from_recipe(
-            os.path.join(os.environ['HOME'], '.cache/.popper/actions/12345/github.com/actions/bin/sh'),
-            os.path.join(os.environ['HOME'], '.cache/.popper/singularity/12345/testimg.sif'))
-        self.assertEqual(os.path.exists(
-            os.path.join(os.environ['HOME'], '.cache/.popper/singularity/12345/testimg.sif')), True)
+            os.path.join(
+                os.environ['HOME'],
+                '.cache/.popper/actions/12345/github.com/actions/bin/sh'),
+            os.path.join(
+                os.environ['HOME'],
+                '.cache/.popper/singularity/12345/testimg.sif'))
+        self.assertEqual(
+            os.path.exists(
+                os.path.join(
+                    os.environ['HOME'],
+                    '.cache/.popper/singularity/12345/testimg.sif')),
+            True)
 
     @unittest.skipIf(
         os.environ['RUNTIME'] != 'singularity',
         'Skipping singularity tests...')
     def test_get_recipe_file(self):
-        os.chdir(os.environ['HOME'] + '/.cache/.popper/actions/12345/github.com/actions/bin/sh')
+        os.chdir(
+            os.environ['HOME'] +
+            '/.cache/.popper/actions/12345/github.com/actions/bin/sh')
         file = SingularityRunner.get_recipe_file(os.getcwd(), '12345')
-        self.assertEqual(file, os.environ['HOME'] + '/.cache/.popper/actions/12345/github.com/actions/bin/sh/Singularity.12345')
-        os.remove(os.environ['HOME'] + '/.cache/.popper/actions/12345/github.com/actions/bin/sh/Dockerfile')
+        self.assertEqual(
+            file,
+            os.environ['HOME'] +
+            '/.cache/.popper/actions/12345/github.com/actions/bin/sh/Singularity.12345')
+        os.remove(
+            os.environ['HOME'] +
+            '/.cache/.popper/actions/12345/github.com/actions/bin/sh/Dockerfile')
         self.assertRaises(
             SystemExit,
             SingularityRunner.get_recipe_file,
@@ -564,8 +605,13 @@ class TestSingularityRunner(unittest.TestCase):
         ]
         self.runner.singularity_build_from_image(
             'docker://debian:buster-slim',
-            os.path.join(os.environ['HOME'], '.cache/.popper/singularity/12345/testimg.sif'))
-        e = self.runner.singularity_start(os.path.join(os.environ['HOME'], '.cache/.popper/singularity/12345/testimg.sif'))
+            os.path.join(
+                os.environ['HOME'],
+                '.cache/.popper/singularity/12345/testimg.sif'))
+        e = self.runner.singularity_start(
+            os.path.join(
+                os.environ['HOME'],
+                '.cache/.popper/singularity/12345/testimg.sif'))
         self.assertEqual(e, 0)
         self.assertEqual(os.path.exists('popper.file'), True)
 
@@ -574,16 +620,24 @@ class TestSingularityRunner(unittest.TestCase):
         'Skipping singularity tests...')
     def test_get_build_resources(self):
         res = self.runner.get_build_resources()
-        self.assertTupleEqual(res,
-        (True, 'actions/bin/sh@master', os.path.join(os.environ['HOME'], '.cache/.popper/actions/12345/github.com/actions/bin/sh')))
+        self.assertTupleEqual(
+            res,
+            (True,
+             'actions/bin/sh@master',
+             os.path.join(
+                 os.environ['HOME'],
+                 '.cache/.popper/actions/12345/github.com/actions/bin/sh')))
         self.runner.action['uses'] = 'docker://debian:buster-slim'
         res = self.runner.get_build_resources()
-        self.assertTupleEqual(res, 
-        (False, 'docker://debian:buster-slim', None))
+        self.assertTupleEqual(res,
+                              (False, 'docker://debian:buster-slim', None))
         self.runner.action['uses'] = './actions/jshint'
         res = self.runner.get_build_resources()
-        self.assertTupleEqual(res,
-        (True, 'action/./actions/jshint', '/tmp/test_folder/./actions/jshint'))
+        self.assertTupleEqual(
+            res,
+            (True,
+             'action/./actions/jshint',
+             '/tmp/test_folder/./actions/jshint'))
 
 
 class TestHostRunner(unittest.TestCase):
@@ -666,7 +720,9 @@ class TestConcurrentExecution(unittest.TestCase):
     def setUp(self):
         os.makedirs('/tmp/test_folder/gha-demo')
         # log.setLevel('CRITICAL')
-        git.Repo.clone_from('https://github.com/JayjeetAtGithub/popper-scaffold-workflow', '/tmp/test_folder/gha-demo')
+        git.Repo.clone_from(
+            'https://github.com/JayjeetAtGithub/popper-scaffold-workflow',
+            '/tmp/test_folder/gha-demo')
         os.chdir('/tmp/test_folder/gha-demo')
         self.wf_one = Workflow('/tmp/test_folder/gha-demo/main.workflow')
         self.wf_two = Workflow('/tmp/test_folder/gha-demo/main.workflow')
@@ -685,8 +741,8 @@ class TestConcurrentExecution(unittest.TestCase):
 
     def test_run(self):
         os.environ['PHONY_SECRET'] = '1234'
-        args = (None, False, False, list(), '/tmp/test_folder/gha-demo', 
-                    False, False, False, False, os.environ['RUNTIME'])
+        args = (None, False, False, list(), '/tmp/test_folder/gha-demo',
+                False, False, False, False, os.environ['RUNTIME'])
         with ThreadPoolExecutor(max_workers=mp.cpu_count()) as ex:
             flist = [
                 ex.submit(self.runner_one.run, *args),

@@ -26,6 +26,7 @@ yaml.Dumper.ignore_aliases = lambda *args: True
 docker_client = docker.from_env()
 s_client = spython.main.Client
 
+
 class WorkflowRunner(object):
     """A GHA workflow runner.
     """
@@ -121,7 +122,8 @@ class WorkflowRunner(object):
         for _, a in wf.action.items():
 
             if a['uses'] == 'sh':
-                a['runner'] = HostRunner(a, workspace, env, dry_run, skip_pull, wid)
+                a['runner'] = HostRunner(
+                    a, workspace, env, dry_run, skip_pull, wid)
                 continue
 
             if a['uses'].startswith('./'):
@@ -243,11 +245,11 @@ class ActionRunner(object):
             f.close()
 
     def prepare_environment(self, set_env=False):
-        """Prepare the environment variables to be 
+        """Prepare the environment variables to be
         set while running an action.
-        
+
         Args:
-            set_env (bool): If True, the environment gets 
+            set_env (bool): If True, the environment gets
                             added to the current shell.
                             Default value is False.
 
@@ -294,7 +296,7 @@ class DockerRunner(ActionRunner):
             action, workspace, env, dry, skip_pull, wid)
         self.cid = pu.sanitized_name(self.action['name'], wid)
         self.container = None
-    
+
     def get_build_resources(self):
         """Parse the `uses` attribute and get the build resources
         from them.
@@ -332,15 +334,15 @@ class DockerRunner(ActionRunner):
             _, _, user, repo, _, version = scm.parse(self.action['uses'])
             image = '{}/{}:{}'.format(user, repo, version)
             build_source = os.path.join(self.action['repo_dir'],
-                                           self.action['action_dir'])
+                                        self.action['action_dir'])
 
         image = image.lower()
         return (build, image, build_source)
 
     def run(self, reuse=False):
-        """Parent function to handle the execution of an 
+        """Parent function to handle the execution of an
         action.
-        
+
         Args:
             reuse (bool): Whether to reuse existent containers or not.
         """
@@ -378,7 +380,7 @@ class DockerRunner(ActionRunner):
     def docker_exists(self):
         """Check whether the container exists or not.
 
-        Returns: 
+        Returns:
             bool: Whether the container exists or not.
         """
         if self.dry_run:
@@ -512,7 +514,7 @@ class SingularityRunner(ActionRunner):
         super(SingularityRunner, self).__init__(action, workspace, env,
                                                 dry_run, skip_pull, wid)
         s_client.quiet = True
-    
+
     @staticmethod
     def setup_singularity_cache(wid):
         singularity_cache = os.path.join(
@@ -524,7 +526,7 @@ class SingularityRunner(ActionRunner):
     def get_build_resources(self):
         """Parse the `uses` attribute and get the build
         resources from them.
-        
+
         Args:
             (bool, str, str): pull/build, image ref, the build source.
         """
@@ -545,7 +547,7 @@ class SingularityRunner(ActionRunner):
             image = self.action['uses']
             build_source = os.path.join(
                 self.action['repo_dir'], self.action['action_dir'])
-        
+
         return (build, image, build_source)
 
     def run(self, reuse=False):
@@ -561,7 +563,7 @@ class SingularityRunner(ActionRunner):
         if reuse:
             log.fail('Reusing containers in singularity runtime is '
                      'currently not supported.')
-        
+
         build, image, build_source = self.get_build_resources()
 
         container_path = os.path.join(
@@ -585,7 +587,7 @@ class SingularityRunner(ActionRunner):
         Args:
             dockerfile (str): The path to the Dockerfile.
             singularityfile (str): The path to the Singularity recipe.
-        
+
         Returns:
             str: The Singularity recipefile path.
         """
@@ -606,13 +608,13 @@ class SingularityRunner(ActionRunner):
     def get_recipe_file(build_source, wid):
         """Get the Singularity recipe file from the build source.
 
-        Finds out a Dockerfile from the build source and 
-        converts it to Singularity recipe. If no Dockerfile is 
+        Finds out a Dockerfile from the build source and
+        converts it to Singularity recipe. If no Dockerfile is
         found, it simply fails.
 
         Args:
             build_source (str): The path to the build source.
-            wid (str): The workflow id to use while naming the 
+            wid (str): The workflow id to use while naming the
                         Singularity recipefile.
 
         Returns:
@@ -720,7 +722,7 @@ class SingularityRunner(ActionRunner):
 
         Args:
             container_path (str): The container image to run/execute.
-        
+
         Returns:
             int: The container process returncode.
         """

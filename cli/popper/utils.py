@@ -21,8 +21,12 @@ def setup_base_cache():
         base_cache = os.environ['POPPER_CACHE_DIR']
     else:
         base_cache = os.path.join(
-                os.environ.get('XDG_CACHE_HOME', os.path.join(os.environ['HOME'], '.cache')),
-                '.popper')
+            os.environ.get(
+                'XDG_CACHE_HOME',
+                os.path.join(
+                    os.environ['HOME'],
+                    '.cache')),
+            '.popper')
 
     if not os.path.exists(base_cache):
         os.makedirs(base_cache)
@@ -331,8 +335,8 @@ def of_type(param, valid_types):
 
 
 def get_workflow_id(*args):
-    """Function to generate an unique hashid 
-    for identifying a workflow by joining the args 
+    """Function to generate an unique hashid
+    for identifying a workflow by joining the args
     provided.
 
     Args:
