@@ -25,7 +25,6 @@ from popper.parser import Workflow
 yaml.Dumper.ignore_aliases = lambda *args: True
 docker_client = docker.from_env()
 s_client = spython.main.Client
-cache = None
 
 class WorkflowRunner(object):
     """A GHA workflow runner.
@@ -37,21 +36,6 @@ class WorkflowRunner(object):
         self.wid = pu.get_workflow_id(os.getuid(), self.wf.workflow_path)
         log.debug('workflow:\n{}'.format(
             yaml.dump(self.wf, default_flow_style=False, default_style='')))
-    
-    @staticmethod
-    def setup_workflow_cache(wid):
-        """Sets up the cache directories following XDG cache
-        specifications and based on the workflow id."""
-        base_cache = pu.setup_base_cache()
-        global cache
-        cache = {
-            'actions': os.path.join(base_cache, 'actions', wid),
-            'singularity': os.path.join(base_cache, 'singularity', wid)
-        }
-
-        for _, path in cache.items():
-            if not os.path.isdir(path):
-                os.makedirs(path)
 
     @staticmethod
     def check_secrets(wf, dry_run, skip_secrets_prompt):
@@ -79,6 +63,10 @@ class WorkflowRunner(object):
     @staticmethod
     def download_actions(wf, dry_run, skip_clone, wid):
         """Clone actions that reference a repository."""
+        actions_cache = os.path.join(
+            pu.setup_base_cache(), 'actions', wid
+        )
+
         cloned = set()
         infoed = False
 
@@ -91,7 +79,7 @@ class WorkflowRunner(object):
                 a['uses'])
 
             repo_dir = os.path.join(
-                cache['actions'], service, user, repo
+                actions_cache, service, user, repo
             )
 
             a['repo_dir'] = repo_dir
@@ -183,7 +171,6 @@ class WorkflowRunner(object):
             skip_secrets_prompt=False):
         """Run the workflow or a specific action.
         """
-        WorkflowRunner.setup_workflow_cache(self.wid)
         new_wf = deepcopy(self.wf)
 
         if skip:
@@ -526,6 +513,13 @@ class SingularityRunner(ActionRunner):
                                                 dry_run, skip_pull, wid)
         s_client.quiet = True
 
+    def setup_singularity_cache(self):
+        singularity_cache = os.path.join(
+            pu.setup_base_cache(), 'singularity', self.wid)
+        if not os.path.exists(singularity_cache):
+            os.makedirs(singularity_cache)
+        return singularity_cache
+
     def get_build_resources(self):
         """Parse the `uses` attribute and get the build
         resources from them.
@@ -561,6 +555,7 @@ class SingularityRunner(ActionRunner):
             reuse (bool): Whether to reuse containers or not.
         """
         self.check_executable('singularity')
+        singularity_cache = self.setup_singularity_cache()
 
         if reuse:
             log.fail('Reusing containers in singularity runtime is '
@@ -569,7 +564,7 @@ class SingularityRunner(ActionRunner):
         build, image, build_source = self.get_build_resources()
 
         container_path = os.path.join(
-            cache['singularity'], pu.sanitized_name(image, self.wid) + '.sif'
+            singularity_cache, pu.sanitized_name(image, self.wid) + '.sif'
         )
 
         if build:
