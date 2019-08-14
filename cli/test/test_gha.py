@@ -713,3 +713,7 @@ class TestConcurrentExecution(unittest.TestCase):
                 ex.submit(self.runner_one.run, *args),
                 ex.submit(self.runner_two.run, *args),
                 ex.submit(self.runner_three.run, *args)]
+            
+            for future in as_completed(flist):
+                future.result()
+
