@@ -17,6 +17,7 @@ from popper.gha import (WorkflowRunner,
                         DockerRunner,
                         SingularityRunner,
                         HostRunner)
+import popper.utils as pu
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -32,20 +33,10 @@ class TestWorkflowRunner(unittest.TestCase):
         shutil.rmtree('/tmp/test_folder')
         log.setLevel('NOTSET')
 
-    def create_workflow_file(self, content):
-        f = open('/tmp/test_folder/a.workflow', 'w')
-        f.write(content)
-        f.close()
-
-    def create_file(self, path, content):
-        f = open(path, 'w')
-        f.write(content)
-        f.close()
-
     def test_check_secrets(self):
         os.environ['SECRET_ONE'] = '1234'
         os.environ['SECRET_TWO'] = '5678'
-        self.create_workflow_file("""
+        pu.write_file('/tmp/test_folder/a.workflow', """
         workflow "sample" {
             resolves = "a"
         }
@@ -63,7 +54,7 @@ class TestWorkflowRunner(unittest.TestCase):
         WorkflowRunner.check_secrets(wf, False, True)
 
         os.environ.pop('SECRET_ONE')
-        self.create_workflow_file("""
+        pu.write_file('/tmp/test_folder/a.workflow', """
         workflow "sample" {
             resolves = "a"
         }
@@ -90,7 +81,7 @@ class TestWorkflowRunner(unittest.TestCase):
             False)
 
     def test_instantiate_runners(self):
-        self.create_workflow_file("""
+        pu.write_file('/tmp/test_folder/a.workflow', """
         workflow "sample" {
             resolves = "a"
         }
@@ -108,10 +99,10 @@ class TestWorkflowRunner(unittest.TestCase):
         self.assertIsInstance(wf.action['a']['runner'], HostRunner)
 
         os.makedirs('/tmp/test_folder/actions/sample')
-        self.create_file('/tmp/test_folder/actions/sample/entrypoint.sh', '')
-        self.create_file('/tmp/test_folder/actions/sample/README.md', '')
+        pu.write_file('/tmp/test_folder/actions/sample/entrypoint.sh')
+        pu.write_file('/tmp/test_folder/actions/sample/README.md')
 
-        self.create_workflow_file("""
+        pu.write_file('/tmp/test_folder/a.workflow', """
         workflow "sample" {
             resolves = "a"
         }
@@ -128,7 +119,7 @@ class TestWorkflowRunner(unittest.TestCase):
             'singularity', wf, '/tmp/test_folder', False, False, '12345')
         self.assertIsInstance(wf.action['a']['runner'], HostRunner)
 
-        self.create_workflow_file("""
+        pu.write_file('/tmp/test_folder/a.workflow', """
         workflow "sample" {
             resolves = "a"
         }
@@ -149,7 +140,7 @@ class TestWorkflowRunner(unittest.TestCase):
         self.assertIsInstance(wf.action['a']['runner'], DockerRunner)
 
     def test_download_actions(self):
-        self.create_workflow_file("""
+        pu.write_file('/tmp/test_folder/a.workflow', """
         workflow "sample" {
             resolves = "a"
         }
@@ -196,7 +187,7 @@ class TestWorkflowRunner(unittest.TestCase):
             '12345')
 
     def test_get_workflow_env(self):
-        self.create_workflow_file("""
+        pu.write_file('/tmp/test_folder/a.workflow', """
         workflow "sample" {
             resolves = "a"
         }
@@ -232,16 +223,6 @@ class TestWorkflowRunner(unittest.TestCase):
 
 class TestActionRunner(unittest.TestCase):
 
-    def create_workflow_file(self, content):
-        f = open('/tmp/test_folder/a.workflow', 'w')
-        f.write(content)
-        f.close()
-
-    def create_file(self, path, content):
-        f = open(path, 'w')
-        f.write(content)
-        f.close()
-
     def setUp(self):
         os.makedirs('/tmp/test_folder')
         os.chdir('/tmp/test_folder')
@@ -256,7 +237,7 @@ class TestActionRunner(unittest.TestCase):
             args = ["echo", "Hello"]
         }
         """
-        self.create_workflow_file(workflow)
+        pu.write_file('/tmp/test_folder/a.workflow', workflow)
         self.wf = Workflow('/tmp/test_folder/a.workflow')
         self.wf.parse()
         WorkflowRunner.instantiate_runners(
@@ -318,16 +299,6 @@ class TestActionRunner(unittest.TestCase):
 
 class TestDockerRunner(unittest.TestCase):
 
-    def create_workflow_file(self, content):
-        f = open('/tmp/test_folder/a.workflow', 'w')
-        f.write(content)
-        f.close()
-
-    def create_file(self, path, content):
-        f = open(path, 'w')
-        f.write(content)
-        f.close()
-
     def setUp(self):
         os.makedirs('/tmp/test_folder')
         os.chdir('/tmp/test_folder')
@@ -342,7 +313,7 @@ class TestDockerRunner(unittest.TestCase):
             args = ["echo", "Hello"]
         }
         """
-        self.create_workflow_file(workflow)
+        pu.write_file('/tmp/test_folder/a.workflow', workflow)
         self.wf = Workflow('/tmp/test_folder/a.workflow')
         self.wf.parse()
         WorkflowRunner.download_actions(self.wf, False, False, '12345')
@@ -444,7 +415,7 @@ class TestDockerRunner(unittest.TestCase):
         os.environ['RUNTIME'] != 'docker',
         'Skipping docker tests...')
     def test_docker_build(self):
-        self.create_file('/tmp/test_folder/Dockerfile', """
+        pu.write_file('/tmp/test_folder/Dockerfile', """
         FROM debian:stable-slim
 
         RUN apt-get update && \
@@ -467,16 +438,6 @@ class TestDockerRunner(unittest.TestCase):
 
 class TestSingularityRunner(unittest.TestCase):
 
-    def create_workflow_file(self, content):
-        f = open('/tmp/test_folder/a.workflow', 'w')
-        f.write(content)
-        f.close()
-
-    def create_file(self, path, content):
-        f = open(path, 'w')
-        f.write(content)
-        f.close()
-
     def setUp(self):
         os.makedirs('/tmp/test_folder')
         os.chdir('/tmp/test_folder')
@@ -491,7 +452,7 @@ class TestSingularityRunner(unittest.TestCase):
             args = ["echo", "Hello"]
         }
         """
-        self.create_workflow_file(workflow)
+        pu.write_file('/tmp/test_folder/a.workflow', workflow)
         self.wf = Workflow('/tmp/test_folder/a.workflow')
         self.wf.parse()
         WorkflowRunner.download_actions(self.wf, False, False, '12345')
@@ -510,7 +471,7 @@ class TestSingularityRunner(unittest.TestCase):
         os.environ['RUNTIME'] != 'singularity',
         'Skipping singularity tests...')
     def test_singularity_exists(self):
-        self.create_file('/tmp/test_folder/testimg.sif', 'fake image file')
+        pu.write_file('/tmp/test_folder/testimg.sif', 'fake image file')
         self.assertEqual(
             self.runner.singularity_exists('/tmp/test_folder/testimg.sif'),
             True)
@@ -520,7 +481,7 @@ class TestSingularityRunner(unittest.TestCase):
         os.environ['RUNTIME'] != 'singularity',
         'Skipping singularity tests...')
     def test_singularity_rm(self):
-        self.create_file('/tmp/test_folder/testimg.sif', 'fake image file')
+        pu.write_file('/tmp/test_folder/testimg.sif', 'fake image file')
         self.runner.singularity_rm('/tmp/test_folder/testimg.sif')
         self.assertEqual(self.runner.singularity_exists(
             '/tmp/test_folder/testimg.sif'), False)
@@ -642,16 +603,6 @@ class TestSingularityRunner(unittest.TestCase):
 
 class TestHostRunner(unittest.TestCase):
 
-    def create_workflow_file(self, content):
-        f = open('/tmp/test_folder/a.workflow', 'w')
-        f.write(content)
-        f.close()
-
-    def create_file(self, path, content):
-        f = open(path, 'w')
-        f.write(content)
-        f.close()
-
     def setUp(self):
         os.makedirs('/tmp/test_folder')
         os.chdir('/tmp/test_folder')
@@ -666,7 +617,7 @@ class TestHostRunner(unittest.TestCase):
             args = ["echo", "Hello"]
         }
         """
-        self.create_workflow_file(workflow)
+        pu.write_file(workflow)
         self.wf = Workflow('/tmp/test_folder/a.workflow')
         self.wf.parse()
         WorkflowRunner.instantiate_runners(
