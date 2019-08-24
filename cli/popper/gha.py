@@ -1,6 +1,8 @@
 from __future__ import unicode_literals
 import os
+import shutil
 import signal
+import time
 import getpass
 import subprocess
 import multiprocessing as mp
@@ -14,6 +16,7 @@ from subprocess import CalledProcessError, PIPE, Popen, STDOUT
 import yaml
 import docker
 import spython
+import vagrant
 from spython.main.parse.parsers import DockerParser
 from spython.main.parse.writers import SingularityWriter
 
@@ -21,6 +24,7 @@ import popper.cli
 from popper.cli import log
 from popper import scm, utils as pu
 from popper.parser import Workflow
+from popper.utils import build_from_image, build_from_source
 
 
 yaml.Dumper.ignore_aliases = lambda *args: True
@@ -142,6 +146,10 @@ class WorkflowRunner(object):
 
             elif runtime == 'singularity':
                 a['runner'] = SingularityRunner(
+                    a, workspace, env, dry_run, skip_pull, wid)
+
+            elif runtime == 'vagrant':
+                a['runner'] = VagrantRunner(
                     a, workspace, env, dry_run, skip_pull, wid)
 
     @staticmethod
@@ -806,6 +814,227 @@ class SingularityRunner(ActionRunner):
             ecode = 0
 
         self.remove_environment()
+        return ecode
+
+
+class VagrantRunner(ActionRunner):
+    """
+    Run an Action in Vagrant runtime.
+    """
+
+    def __init__(self, action, workspace, env, dry, skip_pull, wid):
+        super(VagrantRunner, self).__init__(
+            action, workspace, env, dry, skip_pull, wid
+        )
+        self.cid = pu.sanitized_name(self.action['name'], wid)
+
+    @staticmethod
+    def setup_vagrant_cache(wid):
+        """Setup the vagrant cache directory based
+        on the workflow id.
+
+        Args:
+            wid (str): The workflow id.
+
+        Returns:
+            str: The path to the cache dir.
+        """
+        vagrant_cache = os.path.join(
+            pu.setup_base_cache(), 'vagrant', wid)
+        if not os.path.exists(vagrant_cache):
+            os.makedirs(vagrant_cache)
+        return vagrant_cache
+
+    def get_build_resources(self):
+        """Parse the `uses` attribute and get the build
+        resources from them.
+
+        Args:
+            (bool, str, str): pull/build, image ref, the build source.
+        """
+        build = True
+        image = None
+        build_source = None
+
+        if 'docker://' in self.action['uses']:
+            image = self.action['uses'].replace('docker://', '')
+            if ':' not in image:
+                image += ":latest"
+            build = False
+
+        elif './' in self.action['uses']:
+            action_dir = os.path.basename(
+                self.action['uses'].replace('./', ''))
+
+            if self.env['GITHUB_REPOSITORY'] == 'unknown':
+                repo_id = ''
+            else:
+                repo_id = self.env['GITHUB_REPOSITORY']
+
+                if action_dir:
+                    repo_id += '/'
+
+            image = repo_id + action_dir + ':' + self.env['GITHUB_SHA']
+
+            build_source = os.path.join(
+                scm.get_git_root_folder(), self.action['uses'])
+        else:
+            _, _, user, repo, _, version = scm.parse(self.action['uses'])
+            image = '{}/{}:{}'.format(user, repo, version)
+            build_source = os.path.join(self.action['repo_dir'],
+                                        self.action['action_dir'])
+
+        image = image.lower()
+        return (build, image, build_source)
+
+    def run(self, reuse=False):
+        """Parent function to handle the execution
+        of the action.
+
+        Args:
+            reuse (bool): Whether to reuse containers or not.
+        """
+        self.check_executable('vagrant')
+        self.check_executable('virtualbox')
+
+        if self.skip_pull:
+            log.fail('--skip-pull flag is not supported in actions running '
+                     'in Vagrant runtime.')
+
+        build, image, build_source = self.get_build_resources()
+        
+        env = self.prepare_environment()
+        env['HOME'] = '/home/bargee'
+        env['GITHUB_WORKSPACE'] = env['GITHUB_WORKSPACE'].replace(
+            os.environ['HOME'], '/home/bargee')
+        env['POPPER_WORKSPACE'] = env['POPPER_WORKSPACE'].replace(
+            os.environ['HOME'], '/home/bargee')
+        if build_source:
+            build_source = build_source.replace(
+                os.environ['HOME'], '/home/bargee')
+
+        volumes = [
+            '/var/run/docker.sock:/var/run/docker.sock',
+            '{}:{}'.format(env['HOME'], env['HOME']),
+            '{}:{}'.format(env['HOME'], '/github/home'),
+            '{}:{}'.format(env['GITHUB_WORKSPACE'],
+                           env['GITHUB_WORKSPACE']),
+            '{}:{}'.format(env['GITHUB_WORKSPACE'], '/github/workspace'),
+            '{}:{}'.format(env['GITHUB_EVENT_PATH'],
+                           '/github/workflow/event.json')
+        ]
+
+        extra_args = ""
+        extra_args += " -w {}".format(env['GITHUB_WORKSPACE'])
+        for v in volumes:
+            extra_args += " -v {}".format(v)
+        
+        for k, v in env.items():
+            extra_args += " -e {}='{}'".format(k, v)
+
+        if self.action.get('runs', None):
+            extra_args += " --entrypoint {}".format(' '.join(self.action['runs']))
+
+        vagrant_box_path = os.path.join(
+            VagrantRunner.setup_vagrant_cache(self.wid),
+            self.cid
+        )
+        
+        if not reuse:
+            if self.vagrant_exists(vagrant_box_path):
+                self.vagrant_rm(vagrant_box_path)
+                
+            if build:
+                self.vagrant_build_from_dockerfile(build_source, image, env, extra_args, vagrant_box_path)
+            else:
+                self.vagrant_build_from_image(image, env, extra_args, vagrant_box_path)
+        else:
+            if build:
+                self.vagrant_build_from_dockerfile(build_source, image, env, extra_args, vagrant_box_path)
+            else:
+                self.vagrant_build_from_image(image, env, extra_args, vagrant_box_path)
+        
+        popper.cli.vagrant_list.append(vagrant_box_path)
+        e = self.vagrant_up(vagrant_box_path)
+        self.handle_exit(e)
+
+    def vagrant_rm(self, vagrant_box_path):
+        vagrant.Vagrant(root=vagrant_box_path).destroy()
+        shutil.rmtree(vagrant_box_path)
+
+    def vagrant_exists(self, vagrant_box_path):
+        return os.path.exists(vagrant_box_path)
+
+    def vagrant_build_from_image(self, image, env, extra_args, vagrant_box_path):
+        """Bootstrap a Vagrantfile with configuration to create Docker
+        provisioned VM's from a Docker image for running the action.
+        """
+        log.info('{}[{}] vagrant init'.format(self.msg_prefix,
+                                                    self.action['name']))
+        if self.dry_run:
+            return
+        
+        if not os.path.exists(vagrant_box_path):
+            os.makedirs(vagrant_box_path)
+
+        vagrantfile_content = build_from_image(
+            self.workspace,
+            env['GITHUB_WORKSPACE'],
+            image, 
+            env, 
+            self.action.get('args', []),
+            self.cid,
+            extra_args)
+        pu.write_file(os.path.join(vagrant_box_path, 'Vagrantfile'), vagrantfile_content)
+
+    def vagrant_build_from_dockerfile(self, path, image, env, extra_args, vagrant_box_path):
+        """Bootstrap a Vagrantfile with configuration to create Docker 
+        provisioned Vagrant VM's from Dockerfile for running the action.
+        """
+        log.info('{}[{}] vagrant init'.format(self.msg_prefix,
+                                                    self.action['name']))
+        if self.dry_run:
+            return
+
+        if not os.path.exists(vagrant_box_path):
+            os.makedirs(vagrant_box_path)
+
+        vagrantfile_content = build_from_source(
+            self.workspace,
+            env['GITHUB_WORKSPACE'],
+            image,
+            env,
+            self.action.get('args', []),
+            self.cid,
+            extra_args,
+            path)
+        pu.write_file(os.path.join(vagrant_box_path, 'Vagrantfile'), vagrantfile_content)
+
+    def vagrant_up(self, vagrant_box_path):
+        """Start a VM provisioned with Docker and configured to 
+        run the action.
+
+        Args:
+            int: The exitcode of the process.
+        """
+        log.info('{}[{}] vagrant up'.format(self.msg_prefix,
+                                                    self.action['name']))
+        if not self.dry_run:
+            v_client = vagrant.Vagrant(root=vagrant_box_path)
+            output = v_client.up(stream_output=True, provision=True)
+            try:
+                for line in output:
+                    log.action_info(line)
+                ecode = 0
+            except subprocess.CalledProcessError as ex:
+                ecode = ex.returncode
+            
+            time.sleep(5)
+            shutil.rmtree(os.path.join(vagrant_box_path, '.vagrant'))
+            v_client.halt(force=True)
+        else:
+            ecode = 0
+        
         return ecode
 
 

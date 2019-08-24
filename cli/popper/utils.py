@@ -368,3 +368,53 @@ def write_file(path, content=''):
     f = open(path, 'w')
     f.write(content)
     f.close()
+
+
+BuildFromImageTemplate = """
+Vagrant.configure("2") do |config|
+    config.vm.box = "ailispaw/barge"
+    config.vm.synced_folder "{}", "{}"
+    config.vm.synced_folder "{}", "{}"
+    config.vm.provision "docker" do |d|
+        d.run "{}",
+        has_ssh: true,
+        daemonize: false,
+        restart: "no",
+        args: "--rm {}",
+        image: "{}",
+        cmd: "{}"
+    end
+end
+"""
+
+BuildFromSourceTemplate = """
+Vagrant.configure("2") do |config|
+    config.vm.box = "ailispaw/barge"
+    config.vm.synced_folder "{}", "{}"
+    config.vm.synced_folder "{}", "{}"
+    config.vm.provision "docker" do |d|
+        d.build_image "{}",
+        args: "{}"
+        d.run "{}",
+        has_ssh: true,
+        daemonize: false,
+        restart: "no",
+        args: "--rm {}",
+        image: "{}",
+        cmd: "{}"
+    end
+end
+"""
+
+def build_from_image(ss, sd, image, env, args, cname, extra_args):
+    args = ' '.join(args)
+    return BuildFromImageTemplate.format(
+        os.environ['HOME'], env['HOME'], ss, sd, cname, extra_args, image, args
+    )
+
+def build_from_source(ss, sd, image, env, args, cname, extra_args, build_path):
+    args = ' '.join(args)
+    build_args = "-t {}".format(image)
+    return BuildFromSourceTemplate.format(
+        os.environ['HOME'], env['HOME'], ss, sd, build_path, build_args, cname, extra_args, image, args
+    )

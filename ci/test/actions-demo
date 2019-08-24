@@ -3,6 +3,10 @@ set -ex
 # shellcheck source=./ci/test/common
 source ./common
 
+if [ "$RUNTIME" == "vagrant" ]; then
+exit 0
+fi
+
 delete_dir /tmp/gha-demo
 git clone https://github.com/cplee/github-actions-demo /tmp/gha-demo
 pushd /tmp/gha-demo

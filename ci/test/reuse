@@ -38,7 +38,7 @@ popper run --reuse 'show env'
 
 # test while reusing the container uses the updated args.
 
-if [ "$RUNTIME" != "singularity" ]; then
+if [ "$RUNTIME" != "singularity" ] && [ "$RUNTIME" != "vagrant" ]; then
 
 cat <<EOF > main.workflow
 workflow "test" {
