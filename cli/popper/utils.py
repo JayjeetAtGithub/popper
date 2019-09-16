@@ -382,7 +382,7 @@ Vagrant.configure("2") do |config|
         restart: "no",
         args: "--rm {}",
         image: "{}",
-        cmd: "{}"
+        cmd: "'{}'"
     end
 end
 """
@@ -401,7 +401,7 @@ Vagrant.configure("2") do |config|
         restart: "no",
         args: "--rm {}",
         image: "{}",
-        cmd: "{}"
+        cmd: "'{}'"
     end
 end
 """
