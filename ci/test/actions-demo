@@ -408,7 +408,7 @@ EOF
 
 popper run --runtime docker
 
-if ["$RUNTIME" != "vagrant"]; then
+if [ "$RUNTIME" != "vagrant" ]; then
 
 # Test implementation of handling exit code 78
 cat <<EOF > main.workflow
