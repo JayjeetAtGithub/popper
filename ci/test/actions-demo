@@ -3,10 +3,6 @@ set -ex
 # shellcheck source=./ci/test/common
 source ./common
 
-if [ "$RUNTIME" == "vagrant" ]; then
-exit 0
-fi
-
 delete_dir /tmp/gha-demo
 git clone https://github.com/cplee/github-actions-demo /tmp/gha-demo
 pushd /tmp/gha-demo
@@ -177,11 +173,11 @@ action "did" {
 }
 action "ws" {
   uses = "actions/bin/sh@master"
-  runs = ["sh", "-c", "cat \$GITHUB_WORKSPACE/popperfile"]
+  args = ["cat \$GITHUB_WORKSPACE/popperfile"]
 }
 action "home" {
   uses = "actions/bin/sh@master"
-  runs = ["sh", "-c", "cat \$HOME/popperfile"]
+  args = ["cat \$HOME/popperfile"]
 }
 EOF
 
@@ -196,11 +192,11 @@ workflow "test bindings" {
 }
 action "ws" {
   uses = "actions/bin/sh@master"
-  runs = ["sh", "-c", "cat \$GITHUB_WORKSPACE/popperfile"]
+  args = ["cat \$GITHUB_WORKSPACE/popperfile"]
 }
 action "home" {
   uses = "actions/bin/sh@master"
-  runs = ["sh", "-c", "cat \$HOME/popperfile"]
+  args = ["cat \$HOME/popperfile"]
 }
 EOF
 
@@ -226,7 +222,9 @@ action "test" {
 EOF
 
 popper run --runtime "$RUNTIME" > output
+if [ "$RUNTIME" != "vagrant" ]; then
 grep -q "Successfully ran 'ls'" output
+fi
 
 # test on-failure flag
 init_test_repo
@@ -326,7 +324,7 @@ action "test" {
 
 action "cleanup" {
   uses = "actions/bin/sh@master"
-  runs = ["sh", "-c", "echo Cleaning up..."]
+  args = ["echo Cleaning up..."]
 }
 EOF
 
@@ -344,7 +342,7 @@ action "test1" {
 
 action "test2" {
   uses = "actions/bin/sh@master"
-  runs = ["sh", "-c", "echo Cleaning up..."]
+  args = ["echo Cleaning up..."]
 }
 EOF
 
@@ -364,7 +362,7 @@ action "test1" {
 
 action "test2" {
   uses = "actions/bin/sh@master"
-  runs = ["sh", "-c", "echo Cleaning up..."]
+  args = ["echo Cleaning up..."]
 }
 EOF
 
@@ -380,7 +378,7 @@ workflow "foo" {
 
 action "show workspace in container" {
   uses = "actions/bin/sh@master"
-  runs = ["sh", "-c", "echo \$GITHUB_WORKSPACE"]
+  args = ["echo \$GITHUB_WORKSPACE"]
 }
 
 action "show workspace in host" {
@@ -390,8 +388,11 @@ action "show workspace in host" {
 EOF
 
 popper run --runtime "$RUNTIME" > output
+
+if [ "$RUNTIME" != "vagrant" ]; then
 count=$(grep -wc "/tmp/mypaper" output)
 test "$count" -eq 2
+fi
 
 # Test Docker image references
 cat <<EOF > main.workflow
@@ -406,6 +407,8 @@ action "b" {
 EOF
 
 popper run --runtime docker
+
+if ["$RUNTIME" != "vagrant"]; then
 
 # Test implementation of handling exit code 78
 cat <<EOF > main.workflow
@@ -429,4 +432,5 @@ popper run --runtime "$RUNTIME" > output
 grep -q "Action 'b' ran successfully !" output
 ! grep -q "Action 'end' ran successfully !" output
 
+fi
 echo "Test ACTIONS-DEMO passed."
