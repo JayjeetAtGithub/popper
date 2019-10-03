@@ -370,38 +370,22 @@ def write_file(path, content=''):
     f.close()
 
 
-BuildFromImageTemplate = """
-Vagrant.configure("2") do |config|
-    config.vm.box = "ailispaw/barge"
-    config.vm.synced_folder "{}", "{}"
-    config.vm.synced_folder "{}", "{}"
-    config.vm.provision "docker" do |d|
-        d.run "{}",
-        has_ssh: true,
-        daemonize: false,
-        restart: "no",
-        args: "{}",
-        image: "{}",
-        cmd: "{}"
-    end
-end
-"""
+vagrantfile_content = """
+$script = <<-SCRIPT
+sudo mkdir -p /etc/systemd/system/docker.service.d
+echo "[Service]" > /etc/systemd/system/docker.service.d/options.conf
+echo "ExecStart=" >> /etc/systemd/system/docker.service.d/options.conf
+echo "ExecStart=/usr/bin/dockerd -H unix:// -H tcp://0.0.0.0:2375" >> /etc/systemd/system/docker.service.d/options.conf
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+SCRIPT
 
-BuildFromSourceTemplate = """
 Vagrant.configure("2") do |config|
-    config.vm.box = "ailispaw/barge"
+    config.vm.box = "ubuntu/xenial64"
     config.vm.synced_folder "{}", "{}"
     config.vm.synced_folder "{}", "{}"
-    config.vm.provision "docker" do |d|
-        d.build_image "{}",
-        args: "{}"
-        d.run "{}",
-        has_ssh: true,
-        daemonize: false,
-        restart: "no",
-        args: "{}",
-        image: "{}",
-        cmd: "{}"
-    end
+    config.vm.network "private_network", ip: "172.30.1.5"
+    config.vm.provision "docker"
+    config.vm.provision "shell", inline: $script
 end
 """
