@@ -4,6 +4,9 @@ language: python
 python:
 - "2.7"
 - "3.7"
+language: go
+go:
+- "1.14.2"
 env:
 - RUNTIME=singularity POPPER_TEST_MODE=with-git
 - RUNTIME=docker POPPER_TEST_MODE=without-git
