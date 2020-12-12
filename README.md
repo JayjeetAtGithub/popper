@@ -1,4 +1,4 @@
-# <img src="https://user-images.githubusercontent.com/33978990/101988597-9c623000-3cc0-11eb-83dd-d6ffe0e5c7d4.png" width="75" valign="middle" alt="Popper"/> Popper
+# <img src="https://user-images.githubusercontent.com/33978990/101988652-eea35100-3cc0-11eb-835b-5b909930a773.png" width="60" valign="middle" alt="Popper"/> Popper
 
 [![Downloads](https://pepy.tech/badge/popper/month)](https://pepy.tech/project/popper)
 [![Build Status](https://travis-ci.org/systemslab/popper.svg?branch=master)](https://travis-ci.org/systemslab/popper)
